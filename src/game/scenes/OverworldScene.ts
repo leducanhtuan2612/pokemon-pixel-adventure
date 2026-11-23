@@ -103,7 +103,7 @@ export class OverworldScene extends Phaser.Scene {
     const cap=this.add.rectangle(0,-15,20,6,0xe4c44e).setStrokeStyle(1,0x55431b);
     this.player.add([body,head,cap]);this.player.setDepth(10);
   }
-  private blocked(x:number,y:number){return x<1||y<1||x>=MAP.width-1||y>=MAP.height-1||this.solid.has(keyOf(x,y))||this.npcTiles.has(keyOf(x,y));}
+  private blocked(x:number,y:number){const water=x>=25&&x<=31&&y>=8&&y<=14;return x<1||y<1||x>=MAP.width-1||y>=MAP.height-1||water||this.solid.has(keyOf(x,y))||this.npcTiles.has(keyOf(x,y));}
   update(){
     if(this.battle||this.moving)return;
     const l=this.cursors.left.isDown||this.keys.A.isDown,r=this.cursors.right.isDown||this.keys.D.isDown,u=this.cursors.up.isDown||this.keys.W.isDown,d=this.cursors.down.isDown||this.keys.S.isDown;
