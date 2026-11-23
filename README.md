@@ -1,35 +1,29 @@
 # Pokémon Pixel Adventure
 
-Top-down 2D pixel RPG built with **Phaser 3 + React + TypeScript + Vite**. The game runtime belongs to Phaser; React hosts the HUD and surrounding menus.
+Top-down 2D pixel RPG built with Phaser 3, React, TypeScript and Vite.
 
 ## Run locally
-
 ```bash
 npm install
 npm run dev
 ```
+Open the local URL Vite prints (normally http://localhost:5173). Stop the server with Ctrl+C.
 
-Production build:
+## Greenleaf Village — playable map
+- Large explorable village/forest map with paths, lake, grass patches, houses, clinic, landmarks and Forest Trial gate.
+- Grid-step four-direction movement, map camera and collision with map boundaries, scenery and NPCs.
+- NPC interaction using Enter/Space: guide, Pokémon Center nurse, three trainers and the trial guardian.
+- Random wild encounters in tall grass with a roster of original game-data entries inspired by classic creature RPGs.
+- Turn-based battle: Attack, Capture, Potion and Run (wild battles only); trainer battles and guardian trial.
+- Capture system, party of up to six, PC box overflow, XP/level-up, potions and Poké Balls.
+- Win conditions: defeat three named trainers, challenge Forest Guardian and earn Forest Badge.
+- Local save via browser localStorage: team, PC box, supplies, defeated trainers, badge and map position.
 
-```bash
-npm run build
-npm run preview
-```
+## Controls
+- WASD / Arrow keys: move
+- Enter / Space: interact
+- 1: Attack · 2: Capture · 3: Potion · 4: Run during battle
+- Esc: battle help / exploration hint
 
-## Current foundation
-
-- Vite + React + TypeScript setup
-- Phaser scene bootstrapping and pixel-art rendering
-- First top-down forest map prototype, camera follow, keyboard movement and interaction toast
-- Responsive game shell / adventure HUD
-- Zustand store scaffold
-
-## Roadmap
-
-1. Replace prototype geometry with authored tilemaps and collision layers.
-2. Add modular player movement, NPC/dialogue, map transitions and event system.
-3. Add data-driven Pokémon, random encounters, turn-based battle and capture.
-4. Add party (6 slots), Pokédex, inventory, EXP/levels, quests and boss progression.
-5. Add IndexedDB save/load and audio settings.
-
-This is an incremental playable foundation, not yet the complete game. Gameplay data and systems will be added in separate modules as development continues.
+## Notes
+The current map is a fully playable first-area prototype built from procedural pixel shapes (no external art required). It is designed to be extended with authored tilemaps, animations, sound, quest tracking, additional regions and richer battle moves.
