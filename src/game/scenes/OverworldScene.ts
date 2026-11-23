@@ -42,66 +42,156 @@ export class OverworldScene extends Phaser.Scene {
   private drawWorld(){
     this.mapLayer=this.add.container(0,0);
     const g=this.add.graphics();
+    // Rich pixel-ground base: tiny color flecks create a hand-painted tile texture.
     for(let y=0;y<MAP.height;y++)for(let x=0;x<MAP.width;x++){
-      const edge=x===0||y===0||x===MAP.width-1||y===MAP.height-1;
-      let c=((x*7+y*11)%4===0)?0x5aab69:0x4e9b5d;
-      if((x>12&&x<23&&y>10&&y<15)||(x>2&&x<12&&y>22&&y<27)||(x>31&&x<41&&y>18&&y<22))c=0x9cbd69;
-      if(edge)c=0x2d593b;
-      g.fillStyle(c,1).fillRect(x*TILE,y*TILE,TILE,TILE);
-      g.lineStyle(1,0x244d35,.13).strokeRect(x*TILE,y*TILE,TILE,TILE);
+      const px=x*TILE,py=y*TILE,seed=(x*37+y*71+x*y*13)%17;
+      const base=seed<3?0x4b9657:seed<7?0x56a65f:seed<12?0x60ad66:0x68b16b;
+      g.fillStyle(base,1).fillRect(px,py,TILE,TILE);
+      g.fillStyle(seed%3===0?0x85c878:0x347b49,0.38);
+      g.fillRect(px+4+(seed%7)*3,py+5+(seed%5)*4,3,2);
+      g.fillRect(px+18+(seed%4)*2,py+22-(seed%6)*2,2,4);
+      g.fillStyle(0x2c6940,.18).fillRect(px,py+TILE-2,TILE,2);
     }
-    // Paths connect village, meadow, lake, southern grove and trial gate.
-    g.fillStyle(0xc9b477,1);
-    g.fillRect(7*TILE,10*TILE,5*TILE,14*TILE);
-    g.fillRect(10*TILE,11*TILE,14*TILE,3*TILE);
-    g.fillRect(17*TILE,13*TILE,3*TILE,13*TILE);
-    g.fillRect(18*TILE,24*TILE,22*TILE,3*TILE);
-    g.fillRect(36*TILE,10*TILE,5*TILE,17*TILE);
-    // Grass patches
-    for(const p of GRASS){g.fillStyle(0x347e48,1).fillRect(p.x*TILE,p.y*TILE,TILE,TILE);g.fillStyle(0x76c86b,1);for(let i=0;i<4;i++)g.fillRect(p.x*TILE+5+i*7,p.y*TILE+8+(i%2)*7,3,11);}
-    // Lake and water edge
-    g.fillStyle(0x286da0,1).fillRoundedRect(25*TILE,8*TILE,7*TILE,7*TILE,12);
-    g.lineStyle(4,0x7ac5d3,1).strokeRoundedRect(25*TILE,8*TILE,7*TILE,7*TILE,12);
-    // Buildings
-    this.building(g,5,5,8,5,0xb45c4c,"PLAYER HOME");
-    this.building(g,14,5,7,5,0xd85f72,"POKÉ CENTER");
-    this.building(g,4,16,9,5,0x8d75b9,"RANGER HUT");
-    // Stone gate, sign, flower beds and trees
-    g.fillStyle(0x7b8586,1).fillRect(37*TILE,7*TILE,2*TILE,3*TILE);
-    g.fillStyle(0xe7d49a,1).fillRect(38*TILE,8*TILE,1*TILE,2*TILE);
-    g.fillStyle(0x8d6438,1).fillRect(23*TILE,10*TILE,8,40);
-    g.fillStyle(0xe4d5a4,1).fillRect(22*TILE,10*TILE,36,22);
-    g.fillStyle(0x3b633d,1);
-    for(const [x,y] of [[3,3],[4,3],[3,4],[22,4],[23,4],[36,5],[37,5],[36,6],[22,12],[23,12],[22,13],[34,17],[35,17],[34,18],[14,24],[15,24],[16,24],[28,23],[29,23],[30,23],[2,27],[3,27],[40,4],[40,5],[13,28],[14,28]]){g.fillCircle(x*TILE+16,y*TILE+16,14);g.fillStyle(0x5b9b58,1);g.fillCircle(x*TILE+13,y*TILE+11,9);g.fillStyle(0x3b633d,1);}
+    // Layered dirt routes with pixel edging and worn footprints.
+    const paths=[[7,10,5,14],[10,11,14,3],[17,13,3,13],[18,24,22,3],[36,10,5,17]];
+    for(const [x,y,w,h] of paths){
+      g.fillStyle(0x8e744b,1).fillRect(x*TILE-2,y*TILE-2,w*TILE+4,h*TILE+4);
+      g.fillStyle(0xd4bd83,1).fillRect(x*TILE,y*TILE,w*TILE,h*TILE);
+      g.fillStyle(0xe4d39d,.6);
+      for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++){
+        if((xx*3+yy*5)%6===0)g.fillRect(xx*TILE+5+(yy%3)*5,yy*TILE+7+(xx%4)*4,7,3);
+      }
+      g.fillStyle(0x9b8053,.55);
+      for(let xx=x;xx<x+w;xx+=2)g.fillRect(xx*TILE+2,(y+h-1)*TILE+26,13,3);
+    }
+    // Tall grass clumps, each tuft is drawn as crisp stepped blades.
+    for(const p of GRASS){
+      const x=p.x*TILE,y=p.y*TILE;
+      g.fillStyle(0x367c43,1).fillRect(x+2,y+5,28,25);
+      g.fillStyle(0x4a9c50,1);
+      g.fillRect(x+4,y+11,6,15);g.fillRect(x+12,y+5,5,21);g.fillRect(x+20,y+9,6,17);
+      g.fillStyle(0x85d66c,1);g.fillRect(x+5,y+8,3,8);g.fillRect(x+13,y+3,3,8);g.fillRect(x+22,y+6,3,8);
+      g.fillStyle(0x285d38,1);g.fillRect(x+3,y+26,25,3);
+    }
+    // Lake with pixel shoreline, shallow-water highlights and ripples.
+    g.fillStyle(0x6b9c58,1).fillRect(24*TILE,7*TILE,9*TILE,9*TILE);
+    g.fillStyle(0xd5c17c,1).fillRect(25*TILE,8*TILE,7*TILE,7*TILE);
+    g.fillStyle(0x398cb9,1).fillRect(25*TILE+4,8*TILE+4,7*TILE-8,7*TILE-8);
+    g.fillStyle(0x55b3d0,1);
+    for(let i=0;i<8;i++){const xx=26*TILE+(i*23)%150,yy=9*TILE+(i*31)%150;g.fillRect(xx,yy,18,3);g.fillRect(xx+6,yy+4,8,2);}
+    g.fillStyle(0x9de0df,1);g.fillRect(25*TILE+12,8*TILE+12,22,3);g.fillRect(29*TILE,12*TILE,32,3);
+    g.fillStyle(0x286b9b,1).fillRect(25*TILE+4,14*TILE-8,7*TILE-8,7);
+    // Rocky cliff bands at the northern and eastern boundary, with stratified pixels.
+    g.fillStyle(0x624b67,1).fillRect(1*TILE,2*TILE,2*TILE,7*TILE);
+    g.fillStyle(0x9b718e,1).fillRect(2*TILE,2*TILE,10,7*TILE);
+    g.fillStyle(0x755778,1).fillRect(3*TILE,2*TILE,8,7*TILE);
+    for(let i=0;i<14;i++){g.fillStyle(i%2?0xc08ba7:0x4d405e,1);g.fillRect(1*TILE+(i%3)*9,2*TILE+i*15,6,10);}
+    g.fillStyle(0x66506b,1).fillRect(32*TILE,2*TILE,2*TILE,17*TILE);
+    g.fillStyle(0x9a7793,1).fillRect(32*TILE,2*TILE,9,17*TILE);
+    g.fillStyle(0x745a7e,1).fillRect(33*TILE,2*TILE,9,17*TILE);
+    // Buildings: warm timber foundations, roof tiles, windows, doors and signs.
+    this.building(g,5,5,8,5,0xb65c55,"PLAYER HOME");
+    this.building(g,14,5,7,5,0xd45d76,"POKÉ CENTER");
+    this.building(g,4,16,9,5,0x8c70b5,"RANGER HUT");
+    // Forest Trial entrance and landmark stonework.
+    g.fillStyle(0x4b3b48,1).fillRect(36*TILE-5,7*TILE-5,3*TILE+10,4*TILE+10);
+    g.fillStyle(0x8e8b93,1).fillRect(36*TILE,7*TILE,3*TILE,4*TILE);
+    g.fillStyle(0xb9b5b9,1).fillRect(36*TILE+5,7*TILE+5,8,4*TILE-10);
+    g.fillStyle(0x594f64,1).fillRect(37*TILE,8*TILE,1*TILE,3*TILE);
+    g.fillStyle(0xdacb9a,1).fillRect(38*TILE,8*TILE,1*TILE,3*TILE);
+    g.fillStyle(0x4d3c32,1).fillRect(22*TILE,10*TILE,44,28);
+    g.fillStyle(0xe7d5a1,1).fillRect(22*TILE+4,10*TILE+4,36,20);
+    g.fillStyle(0x8c6a42,1).fillRect(22*TILE+4,10*TILE+4,36,4);
+    g.fillStyle(0x4e7044,1).fillRect(22*TILE+4,10*TILE+17,36,4);
+    // Flower patches, mushrooms, rocks and little route props.
+    for(let i=0;i<34;i++){
+      const x=(i*17+6)%40,y=(i*11+3)%28;
+      if(this.solid.has(keyOf(x,y))||this.grass.has(keyOf(x,y))||((x>=7&&x<=23)&&(y>=10&&y<=26)))continue;
+      const fx=x*TILE+7+(i%4)*5,fy=y*TILE+8+(i%3)*6;
+      g.fillStyle=i%3===0?0xf2d96b:i%3===1?0xf4a5c6:0xe9f0d4,1);
+      g.fillRect(fx,fy,4,4);g.fillRect(fx-2,fy+2,3,3);g.fillRect(fx+3,fy+2,3,3);
+      g.fillStyle(0x4d8c4d,1).fillRect(fx+1,fy+5,2,5);
+    }
+    for(const [x,y] of [[13,14],[24,18],[30,22],[7,25],[35,24],[21,20],[3,13],[39,15]]){
+      g.fillStyle(0x806a59,1).fillRect(x*TILE+4,y*TILE+12,24,14);
+      g.fillStyle(0xb5a08a,1).fillRect(x*TILE+7,y*TILE+8,17,10);
+      g.fillStyle(0xd0bca2,1).fillRect(x*TILE+10,y*TILE+8,7,4);
+      g.fillStyle(0x5e4b43,1).fillRect(x*TILE+4,y*TILE+23,24,3);
+    }
+    // Decorative trees use chunky pixel canopies with shadow and layered foliage.
+    const trees=[[3,3],[4,3],[3,4],[22,4],[23,4],[36,5],[37,5],[36,6],[22,12],[23,12],[22,13],[34,17],[35,17],[34,18],[14,24],[15,24],[16,24],[28,23],[29,23],[30,23],[2,27],[3,27],[40,4],[40,5],[13,28],[14,28],[2,8],[3,8],[12,3],[13,3],[27,3],[28,3],[29,4],[5,13],[6,13],[12,14],[13,14],[20,17],[21,17],[25,18],[26,18],[31,22],[32,22],[37,25],[38,25],[10,27],[11,27]];
+    for(const [tx,ty] of trees){
+      const x=tx*TILE,y=ty*TILE;
+      g.fillStyle(0x355b3a,1).fillRect(x+9,y+20,14,13);
+      g.fillStyle(0x286344,1).fillRect(x+1,y+5,30,24);
+      g.fillStyle(0x3d8b4d,1).fillRect(x+5,y+1,22,24);
+      g.fillStyle(0x58ad5a,1).fillRect(x+8,y+3,13,13);
+      g.fillStyle(0x76c76a,1).fillRect(x+8,y+4,7,5);
+      g.fillStyle(0x2c7043,1).fillRect(x+2,y+17,8,7);
+      g.fillStyle(0x4b9d52,1).fillRect(x+20,y+13,9,8);
+      g.fillStyle(0x1f5637,1).fillRect(x+3,y+27,26,4);
+    }
     this.mapLayer.add(g);
     for(const n of NPCS)this.drawNpc(n);
-    this.add.text(2*TILE,1.5*TILE,"GREENLEAF VILLAGE",{fontFamily:"monospace",fontSize:"16px",color:"#f5edc8",stroke:"#24472e",strokeThickness:5}).setDepth(4);
+    this.add.text(2*TILE,1.5*TILE,"GREENLEAF VILLAGE",{fontFamily:"monospace",fontSize:"16px",color:"#fff1c9",stroke:"#25472e",strokeThickness:5}).setDepth(4);
     this.add.text(34*TILE,6*TILE,"FOREST TRIAL",{fontFamily:"monospace",fontSize:"10px",color:"#fff0bd",stroke:"#493a27",strokeThickness:3}).setDepth(4);
-    this.add.text(21*TILE,9*TILE,"SIGN",{fontFamily:"monospace",fontSize:"9px",color:"#fff0bd"}).setDepth(4);
+    this.add.text(21*TILE,9*TILE,"SIGN",{fontFamily:"monospace",fontSize:"9px",color:"#fff0bd",backgroundColor:"#73563a",padding:{x:4,y:2}}).setDepth(4);
   }
   private building(g:Phaser.GameObjects.Graphics,x:number,y:number,w:number,h:number,color:number,label:string){
-    g.fillStyle(0x453b32,1).fillRect(x*TILE-5,y*TILE-8,w*TILE+10,h*TILE+12);
-    g.fillStyle(color,1).fillRect(x*TILE,y*TILE,w*TILE,h*TILE);
-    g.fillStyle(0xead39a,1).fillRect((x+Math.floor(w/2))*TILE,(y+h-2)*TILE,TILE,2*TILE);
-    g.fillStyle(0x9bd2df,1).fillRect((x+1)*TILE,(y+1)*TILE,TILE,1.5*TILE);
-    g.fillStyle(0xf5e4bd,1).fillRect((x+w-2)*TILE,(y+1)*TILE,TILE,1.5*TILE);
-    g.fillStyle(0x6e4334,1).fillRect(x*TILE-5,y*TILE-8,w*TILE+10,12);
-    g.fillStyle(0xf6e5c5,1).fillRect(x*TILE+8,y*TILE+3,w*TILE-16,14);
-    this.mapLayer.add(this.add.text((x+w/2)*TILE,y*TILE+5,label,{fontFamily:"monospace",fontSize:"8px",color:"#573e30"}).setOrigin(.5).setDepth(3));
+    const px=x*TILE,py=y*TILE,ww=w*TILE,hh=h*TILE;
+    // Timber base and stone footing.
+    g.fillStyle(0x493a35,1).fillRect(px-5,py+hh-5,ww+10,13);
+    g.fillStyle(0xc3b69a,1).fillRect(px-3,py+hh-4,ww+6,5);
+    g.fillStyle(0x72504a,1).fillRect(px-7,py-12,ww+14,22);
+    g.fillStyle(color,1).fillRect(px,py,ww,hh);
+    // Roof tiles: stepped eaves and repeated highlights read as pixel shingles.
+    g.fillStyle(0x6b3d49,1).fillRect(px-6,py-9,ww+12,13);
+    g.fillStyle(color,1).fillRect(px-3,py-13,ww+6,9);
+    g.fillStyle(0xf1b6a1,1).fillRect(px+5,py-11,ww-10,3);
+    for(let row=0;row<3;row++)for(let col=0;col<w*2;col++){
+      g.fillStyle((row+col)%3===0?0x8c4654:0x703e4c,1).fillRect(px+col*16-2,py-7+row*4,13,3);
+    }
+    // Wall boards and framed windows.
+    g.fillStyle(0x643f43,.55);for(let col=1;col<w;col+=2)g.fillRect(px+col*TILE,py+15,2,hh-20);
+    for(const wx of [px+TILE,px+ww-TILE-7]){
+      g.fillStyle(0x63463d,1).fillRect(wx-3,py+TILE-2,20,23);
+      g.fillStyle(0xf4dba4,1).fillRect(wx,py+TILE+1,14,17);
+      g.fillStyle(0x79b8d0,1).fillRect(wx+2,py+TILE+3,10,13);
+      g.fillStyle(0xf7e7c2,1).fillRect(wx+6,py+TILE+3,2,13);
+      g.fillStyle(0xf7e7c2,1).fillRect(wx+2,py+TILE+8,10,2);
+    }
+    // Entrance with doorstep.
+    const dx=px+Math.floor(w/2)*TILE;
+    g.fillStyle(0x5a3935,1).fillRect(dx-2,py+hh-2,TILE+4,2*TILE+3);
+    g.fillStyle=0x9d6c4e,1).fillRect(dx+3,py+hh+2,TILE-6,2*TILE-5);
+    g.fillStyle=0x4d302d,1).fillRect(dx+7,py+hh+5,TILE-14,2*TILE-8);
+    g.fillStyle(0xe7c77f,1).fillRect(dx+TILE-11,py+hh+TILE,3,3);
+    g.fillStyle(0xf2e1bc,1).fillRect(px+8,py+5,ww-16,13);
+    this.mapLayer.add(this.add.text(px+ww/2,py+7,label,{fontFamily:"monospace",fontSize:"8px",color:"#573e30"}).setOrigin(.5).setDepth(3));
   }
   private drawNpc(n:Npc){
-    const color=n.kind==="healer"?0xf3e5e9:n.kind==="boss"?0x7e4eae:n.kind==="trainer"?0xe3a25b:0x8ed0a5;
+    const palette=n.kind==="healer"?[0xf4dce6,0xe8a6b9,0x8c4d77]:n.kind==="boss"?[0x7e4eae,0xd8b8e8,0x39264f]:n.kind==="trainer"?[0xe3a25b,0xf0c18d,0x4d6b9b]:[0x8ed0a5,0xdab58c,0x416b53];
     const c=this.add.container(n.x*TILE+16,n.y*TILE+16);
-    c.add([this.add.rectangle(0,3,21,24,color).setStrokeStyle(2,0x352f2b),this.add.rectangle(0,-7,15,12,0xf1c79d).setStrokeStyle(1,0x352f2b),this.add.rectangle(0,10,12,8,n.kind==="boss"?0x452d69:0x3d6c9b)]);
-    c.add(this.add.text(0,-24,n.name,{fontFamily:"monospace",fontSize:"8px",color:"#fff",backgroundColor:"#1e3026",padding:{x:3,y:2}}).setOrigin(.5));
-    c.setDepth(5); this.mapLayer.add(c);
+    const p=this.add.graphics();
+    // Tiny 16-bit style trainer: feet, jacket, hands, face, hair/hat and outline.
+    const px=(x:number,y:number,w:number,h:number,col:number)=>p.fillStyle(col,1).fillRect(x,y,w,h);
+    px(-7,9,5,5,0x493b3a);px(2,9,5,5,0x493b3a);px(-8,3,16,7,palette[0]);px(-10,-1,5,8,palette[0]);px(5,-1,5,8,palette[0]);
+    px(-6,-8,12,12,0xf0c39a);px(-7,-11,14,5,0x49382e);px(-6,-14,12,5,palette[1]);px(-3,-5,2,2,0x2b2b34);px(3,-5,2,2,0x2b2b34);
+    px(-7,0,14,4,palette[2]);px(-4,4,8,3,palette[2]);px(-9,1,4,5,0xf0c39a);px(5,1,4,5,0xf0c39a);
+    c.add(p);c.add(this.add.text(0,-25,n.name,{fontFamily:"monospace",fontSize:"8px",color:"#fff",backgroundColor:"#263d2c",padding:{x:3,y:2}}).setOrigin(.5));
+    c.setDepth(5);this.mapLayer.add(c);
   }
   private drawPlayer(){
     this.player=this.add.container(this.px*TILE+16,this.py*TILE+16);
-    const body=this.add.rectangle(0,3,20,23,0x4f8bd8).setStrokeStyle(2,0x233e61);
-    const head=this.add.rectangle(0,-8,16,13,0xf1c69a).setStrokeStyle(2,0x523d2b);
-    const cap=this.add.rectangle(0,-15,20,6,0xe4c44e).setStrokeStyle(1,0x55431b);
-    this.player.add([body,head,cap]);this.player.setDepth(10);
+    const p=this.add.graphics();const px=(x:number,y:number,w:number,h:number,col:number)=>p.fillStyle(col,1).fillRect(x,y,w,h);
+    // Original pixel trainer sprite with shadow, backpack, jacket and directional face.
+    px(-11,12,22,4,0x315d3c);px(-7,8,5,7,0x443a37);px(2,8,5,7,0x443a37);
+    px(-8,1,16,9,0xc94d54);px(-11,-1,5,8,0xe9b88d);px(6,-1,5,8,0xe9b88d);
+    px(-7,-9,14,13,0xf0c69b);px(-8,-13,16,6,0x292d39);px(-6,-16,12,5,0xe2c64f);
+    px(-8,-11,16,3,0x303846);px(-4,-5,2,2,0x27313a);px(3,-5,2,2,0x27313a);
+    px(-8,1,16,3,0x9b3546);px(-4,4,8,3,0x9b3546);px(-10,0,4,5,0x426ca6);px(6,0,4,5,0x426ca6);
+    px(7,-8,4,7,0x513d32);px(8,-7,2,3,0xf1d49c);
+    this.player.add(p);this.player.setDepth(10);
   }
   private blocked(x:number,y:number){const water=x>=25&&x<=31&&y>=8&&y<=14;return x<1||y<1||x>=MAP.width-1||y>=MAP.height-1||water||this.solid.has(keyOf(x,y))||this.npcTiles.has(keyOf(x,y));}
   update(){
