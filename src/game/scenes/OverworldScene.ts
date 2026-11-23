@@ -24,7 +24,7 @@ export class OverworldScene extends Phaser.Scene {
 
   constructor(){super("OverworldScene");}
   create(){
-    this.save=loadSave(); this.px=clamp(this.save.steps?this.px:8,1,40); this.py=12;
+    this.save=loadSave(); this.px=clamp(this.save.position?.x??8,1,40); this.py=clamp(this.save.position?.y??12,1,28);
     this.drawWorld(); this.drawPlayer();
     this.cursors=this.input.keyboard!.createCursorKeys();
     this.keys=this.input.keyboard!.addKeys("W,A,S,D,ENTER,SPACE,ESC,ONE,TWO,THREE,FOUR") as Record<string,Phaser.Input.Keyboard.Key>;
@@ -112,7 +112,7 @@ export class OverworldScene extends Phaser.Scene {
     const nx=this.px+dx,ny=this.py+dy;if(this.blocked(nx,ny))return;
     this.moving=true;this.px=nx;this.py=ny;
     this.tweens.add({targets:this.player,x:nx*TILE+16,y:ny*TILE+16,duration:105,onComplete:()=>{
-      this.moving=false;this.save.steps++;this.persist();
+      this.moving=false;this.save.steps++;this.save.position={x:this.px,y:this.py};this.persist();
       if(keyOf(nx,ny)===keyOf(40,27))this.tryExit();
       if(this.grass.has(keyOf(nx,ny))&&Math.random()<.22)this.startWildBattle();
     }});
@@ -133,7 +133,7 @@ export class OverworldScene extends Phaser.Scene {
     if(this.save.defeated.includes(n.id)){this.showToast("Bạn đã thắng trận này rồi!");return;}
     this.startTrainerBattle(n);
   }
-  private tryExit(){if(!this.save.badge){this.showToast("Forest Trial chưa hoàn thành. Hãy đánh bại Guardian!");this.px=39;this.player.x=this.px*TILE+16;return;}this.showToast("Map Greenleaf hoàn thành! Khu vực tiếp theo sẽ mở trong bản cập nhật.");this.px=39;this.player.x=this.px*TILE+16;}
+  private tryExit(){if(!this.save.badge){this.showToast("Forest Trial chưa hoàn thành. Hãy đánh bại Guardian!");this.px=39;this.save.position={x:this.px,y:this.py};this.player.x=this.px*TILE+16;this.persist();return;}this.showToast("Map Greenleaf hoàn thành! Khu vực tiếp theo sẽ mở trong bản cập nhật.");this.px=39;this.save.position={x:this.px,y:this.py};this.player.x=this.px*TILE+16;this.persist();}
   private startWildBattle(){
     const available=SPECIES.filter(s=>s.id!=="snorlax");const s=available[Math.floor(Math.random()*available.length)];
     this.openBattle({foe:makeCreature(s.id,2+Math.floor(Math.random()*4)),wild:true,boss:false});
@@ -173,13 +173,13 @@ export class OverworldScene extends Phaser.Scene {
     b.foe.hp-=Math.max(3,s.attack+a.level+Math.floor(Math.random()*4));
     if(b.foe.hp<=0){this.winBattle();return;}
     a.hp-=Math.max(2,f.attack+b.foe.level+Math.floor(Math.random()*3));
-    if(a.hp<=0){a.hp=0;const next=this.save.party.find(p=>p.hp>0);if(!next){this.save.party.forEach(p=>p.hp=this.maxHp(p));this.px=8;this.py=12;this.player.setPosition(this.px*TILE+16,this.py*TILE+16);this.showToast("Đội đã kiệt sức. Nurse Maple hồi phục và đưa bạn về làng.");this.endBattle();this.persist();return;}}
+    if(a.hp<=0){a.hp=0;const next=this.save.party.find(p=>p.hp>0);if(!next){this.save.party.forEach(p=>p.hp=this.maxHp(p));this.px=8;this.py=12;this.save.position={x:this.px,y:this.py};this.player.setPosition(this.px*TILE+16,this.py*TILE+16);this.showToast("Đội đã kiệt sức. Nurse Maple hồi phục và đưa bạn về làng.");this.endBattle();this.persist();return;}}
     this.refreshBattle();this.persist();
   }
   private capture(){
     if(!this.battle?.wild)return;if(this.save.balls<=0){this.showToast("Bạn đã hết Poké Ball!");return;}
     this.save.balls--;const b=this.battle,foe=getSpecies(b.foe.speciesId),chance=clamp(foe.catchRate+(1-b.foe.hp/this.maxHp(b.foe))*.45,.08,.95);
-    if(Math.random()<chance){if(this.save.party.length<6)this.save.party.push(b.foe);this.showToast(`Bắt được ${foe.name}! ${this.save.party.length>=6?"Đội đã đủ 6, Pokémon được lưu vào hộp (demo).": "Pokémon gia nhập đội!"}`);this.endBattle();}
+    if(Math.random()<chance){if(this.save.party.length<6){this.save.party.push(b.foe);this.showToast(`Bắt được ${foe.name}! Pokémon gia nhập đội.`);}else{this.save.box.push(b.foe);this.showToast(`Bắt được ${foe.name}! Đội đầy, Pokémon được gửi vào PC Box.`);}this.endBattle();}
     else{this.showToast("Pokémon thoát khỏi Poké Ball!");this.enemyTurn();}
     this.persist();
   }
