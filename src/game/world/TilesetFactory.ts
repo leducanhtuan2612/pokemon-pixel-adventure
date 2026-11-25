@@ -209,6 +209,7 @@ export function buildAtlas(scene: Phaser.Scene, key: string, descriptors: string
   });
   if (scene.textures.exists(key)) scene.textures.remove(key);
   const texture = scene.textures.addCanvas(key, canvas);
+  if (!texture) throw new Error(`Failed to create isometric atlas: ${key}`);
   descriptors.forEach((_, i) => texture.add(String(i), 0, (i % cols) * ISO_TILE_W, Math.floor(i / cols) * ISO_TILE_H, ISO_TILE_W, ISO_TILE_H));
   return index;
 }
