@@ -36,6 +36,7 @@ export class OverworldScene extends Phaser.Scene {
   /** Click-to-walk route overlay. Rendered in world space and cleared on arrival. */
   private routeGraphics?: Phaser.GameObjects.Graphics;
   private routeDestination?: Point;
+  private manualRoute = false;
 
 
   constructor() { super("OverworldScene"); }
@@ -153,6 +154,7 @@ export class OverworldScene extends Phaser.Scene {
     const path = this.findQuestPath([goal]);
     if (!path) return;
     this.autoNpcId = undefined;
+    this.manualRoute = true;
     this.autoQuestLabel = "Điểm đã chọn";
     this.autoQuestArrival = "Bạn đã đến vị trí đã chọn.";
     this.autoPath = path; this.autoPathIndex = 0; this.autoNavigating = path.length > 0;
@@ -181,6 +183,7 @@ export class OverworldScene extends Phaser.Scene {
   }
 
   private navigateToTarget(targetDef: QuestTarget) {
+    this.manualRoute = false;
     this.autoNpcId = targetDef.npcId;
     this.autoQuestLabel = targetDef.label;
     this.autoQuestArrival = targetDef.arrival;
@@ -250,6 +253,7 @@ export class OverworldScene extends Phaser.Scene {
   private finishQuestNavigation() {
     this.autoNavigating = false; this.autoPath = []; this.autoPathIndex = 0;
     this.routeDestination = undefined; this.routeGraphics?.clear();
+    if (this.manualRoute) { this.manualRoute = false; useGameStore.getState().notify("Đã đến điểm đã chọn."); return; }
     if (this.autoNpcId) {
       const npc = this.world.npcs.find((n) => n.def.id === this.autoNpcId);
       if (npc && Math.abs(npc.x - this.player.tile.x) + Math.abs(npc.y - this.player.tile.y) === 1) {
@@ -263,7 +267,7 @@ export class OverworldScene extends Phaser.Scene {
   }
 
   private cancelQuestNavigation(message: string) {
-    this.autoNavigating = false; this.autoPath = []; this.autoPathIndex = 0; this.autoNpcId = undefined;
+    this.autoNavigating = false; this.autoPath = []; this.autoPathIndex = 0; this.autoNpcId = undefined; this.manualRoute = false;
     this.routeDestination = undefined; this.routeGraphics?.clear();
     useGameStore.getState().notify(message);
   }
