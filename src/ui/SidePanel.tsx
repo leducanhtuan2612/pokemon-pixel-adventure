@@ -17,13 +17,13 @@ export function SidePanel() {
     <div className="panel-heading"><span>YOUR ADVENTURE</span><b>01</b></div>
     <div className="trainer-card">
       <div className="trainer-avatar">🧢</div>
-      <div><strong>TRAINER {d.playerName}</strong><small>₽{d.money.toLocaleString("vi-VN")} · Huy hiệu {d.badges.length}</small></div>
+      <div><strong>NGƯỜI NUÔI {d.playerName}</strong><small>₽{d.money.toLocaleString("vi-VN")} · Huy hiệu {d.badges.length}</small></div>
       <span className="level">DEX {d.dex.caught.length}</span>
     </div>
     <div className="quick-actions">
       <button onClick={() => open("party")}>ĐỘI HÌNH</button>
       <button onClick={() => open("bag")}>TÚI ĐỒ</button>
-      <button onClick={() => open("dex")}>POKÉDEX</button>
+      <button onClick={() => open("dex")}>SỔ LINH THÚ</button>
       <button onClick={() => open("menu")}>MENU</button>
     </div>
     <div className="section-title">ĐỘI HÌNH</div>
@@ -31,7 +31,7 @@ export function SidePanel() {
       {d.party.length ? d.party.map((m) => <div key={m.uid} className="side-mon">
         <Sprite speciesId={m.speciesId} size={32} />
         <div><b>{displayName(m)}</b> <small>Lv{m.level}</small><HpBar mon={m} /></div>
-      </div>) : <small className="muted">Chưa có Pokémon.</small>}
+      </div>) : <small className="muted">Chưa có linh thú.</small>}
     </div>
     <div className="section-title">NHIỆM VỤ CHÍNH <b className="quest-step">{mainStep}</b></div>
     <div className="quest quest-active">
