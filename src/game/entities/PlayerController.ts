@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { PROP, TILE_SIZE, ensureCharacterTexture } from "../world/TilesetFactory";
+import { PROP, TILE_SIZE, ISO_TILE_W, ISO_TILE_H, ensureCharacterTexture } from "../world/TilesetFactory";
 import { DIR_VECTORS, type Direction, type Point } from "../world/types";
 import { depthFor, setCharacterFrame, type WorldMap } from "../world/WorldMap";
 
@@ -29,12 +29,15 @@ export class PlayerController {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
 
+  private screen(p: Point): Point { return { x: (p.x - p.y + this.world.height) * ISO_TILE_W / 2, y: (p.x + p.y) * ISO_TILE_H / 2 }; }
+
   constructor(private scene: Phaser.Scene, private world: WorldMap, start: Point) {
     this.tile = { ...start };
     const texture = ensureCharacterTexture(scene, "player");
-    this.shadow = scene.add.image(start.x * TILE_SIZE + 16, start.y * TILE_SIZE + 29, PROP.shadow).setDepth(depthFor(start.y, 0.1));
-    this.sprite = scene.add.sprite(start.x * TILE_SIZE + 16, start.y * TILE_SIZE + 16, texture, 0);
-    this.sprite.setDepth(depthFor(start.y, 0.5));
+    const p = this.screen(start);
+    this.shadow = scene.add.image(p.x, p.y + 13, PROP.shadow).setDepth(depthFor(start.x + start.y, 0.1));
+    this.sprite = scene.add.sprite(p.x, p.y, texture, 0);
+    this.sprite.setDepth(depthFor(start.x + start.y, 0.5));
     setCharacterFrame(this.sprite, this.facing, 0);
     const kb = scene.input.keyboard!;
     this.cursors = kb.createCursorKeys();
@@ -56,8 +59,9 @@ export class PlayerController {
     this.scene.tweens.killTweensOf(this.sprite);
     this.moving = false;
     this.tile = { ...p };
-    this.sprite.setPosition(p.x * TILE_SIZE + 16, p.y * TILE_SIZE + 16).setDepth(depthFor(p.y, 0.5));
-    this.shadow.setPosition(this.sprite.x, this.sprite.y + 13).setDepth(depthFor(p.y, 0.1));
+    const screen = this.screen(p);
+    this.sprite.setPosition(screen.x, screen.y).setDepth(depthFor(p.x + p.y, 0.5));
+    this.shadow.setPosition(this.sprite.x, this.sprite.y + 13).setDepth(depthFor(p.x + p.y, 0.1));
     this.face(dir);
     this.world.updateGrassOverlay(this.tile, this.sprite.depth, false);
   }
@@ -107,12 +111,11 @@ export class PlayerController {
     setCharacterFrame(this.sprite, dir, stride);
     const running = this.shift.isDown;
     // Depth switches at the start when moving down, at the end when moving up, so trees/roofs overlap correctly.
-    if (dy > 0 || dx !== 0) this.sprite.setDepth(depthFor(ny, 0.5));
+    if (dy > 0 || dx !== 0) this.sprite.setDepth(depthFor(nx + ny, 0.5));
     this.world.updateGrassOverlay({ x: -99, y: -99 }, 0, false);
     this.scene.tweens.add({
       targets: this.sprite,
-      x: nx * TILE_SIZE + 16,
-      y: ny * TILE_SIZE + 16,
+      ...this.screen({ x: nx, y: ny }),
       duration: running ? STEP_MS * 0.55 : STEP_MS,
       onUpdate: (tw) => {
         if (tw.progress > 0.55) setCharacterFrame(this.sprite, dir, 0);
@@ -120,8 +123,8 @@ export class PlayerController {
       },
       onComplete: () => {
         this.moving = false;
-        this.sprite.setDepth(depthFor(ny, 0.5));
-        this.shadow.setDepth(depthFor(ny, 0.1));
+        this.sprite.setDepth(depthFor(nx + ny, 0.5));
+        this.shadow.setDepth(depthFor(nx + ny, 0.1));
         this.world.updateGrassOverlay(this.tile, this.sprite.depth, true);
         this.onStep?.(this.tile);
       },
