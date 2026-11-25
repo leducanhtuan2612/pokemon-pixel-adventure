@@ -2,6 +2,7 @@ import { START_MAP_ID } from "../data/maps";
 import { getItem } from "../data/items";
 import { normalizeMoveId } from "../data/moves";
 import { getSpecies } from "../data/species";
+import { MOVES, getMove, normalizeMoveId } from "../data/moves";
 import {
   createPokemon, displayName, evolve, healPokemon, itemEvolution, maxHp, type PokemonInstance,
 } from "./pokemon";
@@ -124,6 +125,57 @@ export class GameSession {
     this.addPokemon(createPokemon(speciesId, 5));
     this.data.starterChosen = true;
     this.changed();
+  }
+
+  /** Redeem one-time Map 1 QA gifts; the test team is routed into party/PC safely. */
+  redeemCode(raw: string): { ok: boolean; message: string } {
+    const code = raw.trim().toUpperCase().replace(/[\\s_]+/g, "-");
+    const flag = "redeem:" + code;
+    if (this.hasFlag(flag)) return { ok: false, message: "Mã này đã được đổi trên save hiện tại." };
+    const greenleafTeam = [
+      "bulbasaur", "charmander", "squirtle", "pidgey", "rattata", "caterpie", "weedle",
+      "spearow", "oddish", "nidoranf", "nidoranm", "pikachu", "eevee", "geodude", "sandshrew", "metapod",
+    ];
+    if (code === "GREENLEAF-TEST" || code === "MAP1-ALL-POKEMON") {
+      for (const id of greenleafTeam) this.addPokemon(createPokemon(id, 30));
+      this.addItem("poke-ball", 99);
+      this.addItem("great-ball", 99);
+      this.addItem("ultra-ball", 30);
+      this.addItem("potion", 99);
+      this.addItem("super-potion", 99);
+      this.addItem("full-restore", 30);
+      this.data.money += 50000;
+      this.data.starterChosen = true;
+      this.setFlag(flag);
+      this.changed();
+      return { ok: true, message: "Đã nhận đội test Map 1 (16 Pokémon Lv.30), vật phẩm và 50.000₽. Pokémon dư đã gửi vào PC Box." };
+    }
+    if (code === "MAP1-MOVE-LAB" || code === "MOVE-TEST-101") {
+      if (!this.data.party.length) {
+        this.addPokemon(createPokemon("pikachu", 30));
+        this.data.starterChosen = true;
+      }
+      this.data.party.forEach((mon) => { mon.level = Math.max(mon.level, 30); mon.exp = expForLevel(getSpecies(mon.speciesId).growth, mon.level); });
+      this.addItem("potion", 50);
+      this.addItem("full-restore", 25);
+      this.data.money += 25000;
+      this.setFlag("unlock:move-lab");
+      this.setFlag(flag);
+      this.changed();
+      return { ok: true, message: "Move Lab đã mở! Pokémon trong đội được nâng tối thiểu Lv.30." };
+    }
+    return { ok: false, message: "Mã không hợp lệ. Hãy kiểm tra lại chữ và dấu gạch ngang." };
+  }
+
+  /** QA-only move assignment: allow any move in the current Gen 3 move registry. */
+  assignTestMove(partyIndex: number, moveId: string, slotIndex: number): { ok: boolean; message: string } {
+    if (!this.hasFlag("unlock:move-lab")) return { ok: false, message: "Hãy đổi mã MAP1-MOVE-LAB trước." };
+    const mon = this.data.party[partyIndex], id = normalizeMoveId(moveId), move = MOVES[id];
+    if (!mon || !move || !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 3) return { ok: false, message: "Pokémon, chiêu hoặc ô chiêu không hợp lệ." };
+    const pp = getMove(id).pp;
+    mon.moves[slotIndex] = { id, pp, maxPp: pp };
+    this.changed();
+    return { ok: true, message: `Đã gắn ${move.name} vào ô chiêu ${slotIndex + 1} của ${displayName(mon)}.` };
   }
 
   hasFlag(f: string) { return this.data.flags.includes(f); }
