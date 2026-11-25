@@ -128,7 +128,7 @@ export class GameSession {
 
   /** Redeem one-time Map 1 QA gifts; the test team is routed into party/PC safely. */
   redeemCode(raw: string): { ok: boolean; message: string } {
-    const code = raw.trim().toUpperCase().replace(/[\\s_]+/g, "-");
+    const code = raw.trim().toUpperCase().replace(/\s+/g, "-").replace(/_/g, "-");
     const flag = "redeem:" + code;
     if (this.hasFlag(flag)) return { ok: false, message: "Mã này đã được đổi trên save hiện tại." };
     const greenleafTeam = [
@@ -146,9 +146,10 @@ export class GameSession {
       this.addItem("full-heal", 30);
       this.data.money += 50000;
       this.data.starterChosen = true;
+      this.setFlag("unlock:move-lab");
       this.setFlag(flag);
       this.changed();
-      return { ok: true, message: "Đã nhận đội test Map 1 (16 Pokémon Lv.30), vật phẩm và 50.000₽. Pokémon dư đã gửi vào PC Box." };
+      return { ok: true, message: "Đã nhận đội test Map 1 (16 Pokémon Lv.30), vật phẩm, 50.000₽ và mở Move Lab. Pokémon dư đã gửi vào PC Box." };
     }
     if (code === "MAP1-MOVE-LAB" || code === "MOVE-TEST-101") {
       if (!this.data.party.length) {
