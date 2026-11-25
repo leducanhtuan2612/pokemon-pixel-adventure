@@ -993,7 +993,6 @@ export class MoveFx {
    */
   private async signatureFallback(c: Ctx) {
     const id = c.move.id.toLowerCase();
-    const name = c.move.name.toLowerCase();
     const physical = categoryOf(c.move.type) === "physical";
     const heavy = c.move.power >= 85 || !!c.move.ohko;
     const multi = c.move.multiHit ? Math.max(2, Math.min(5, c.move.multiHit[1])) : 1;
@@ -1012,12 +1011,12 @@ export class MoveFx {
       } else if (/dance|boost|raise|growth|focus|harden|agility|calm|meditat|charge|stockpile/.test(id)) {
         await this.magicCircle(c.user, c.col, 900);
         await this.auraFlames(c.user, c.col);
-        await this.orbit(c.u, 5, c.col, 520, 30, 15);
+        await this.x3.orbit(c.u, 5, c.col, 520, 30, 15);
       } else if (/seed|root|bind|trap|web|spore|powder|toxic|sleep|paraly| confuse/.test(id)) {
         await this.vinesAround(c.t, c.col);
         await this.powder(c.t, [c.col, 0xffffff], 16);
       } else if (/weather|rain|sun|sand|hail|terrain|field/.test(id)) {
-        await this.magicCircle(c.t, c.col, 1000);
+        await this.magicCircle(c.target, c.col, 1000);
         await this.tornado(c.t, c.col);
       } else {
         await this.statusGeneric(c);
@@ -1053,6 +1052,9 @@ export class MoveFx {
       return;
     }
 
+    // Low-power special moves use the detailed elemental choreography; stronger
+    // moves use the multi-projectile cinematic signature below.
+    if (c.move.power < 45) { await this.typeGeneric(c); return; }
     // Distinct elemental projectile choreography for unlisted special attacks.
     const count = heavy ? 3 : 1;
     const shots = Array.from({ length: count }, async (_, i) => {
