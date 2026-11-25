@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { session } from "../game/core/GameSession";
 
-export type Panel = "menu" | "party" | "bag" | "dex" | "mart" | "starter" | "box" | "redeem" | "moveLab";
+export type Panel = "menu" | "party" | "bag" | "dex" | "mart" | "starter" | "box" | "redeem" | "moveLab" | "gacha";
 
 type GameState = {
   ready: boolean;
