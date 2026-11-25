@@ -25,7 +25,8 @@ type Input = Key | { pick: number } | { focus: number };
 
 const W = 640, H = 400, PANEL_Y = 288;
 const FOE = { x: 470, y: 150 }, PLAYER = { x: 166, y: 286 };
-const FOE_SCALE = 6, PLAYER_SCALE = 7;
+// Sprite canvas resolution doubled in petArt; halve display scale to preserve battle framing.
+const FOE_SCALE = 3, PLAYER_SCALE = 3.5;
 const INK = "#404048", INK_SHADOW = "#d8d0c8";
 
 const hex = (c: string) => Phaser.Display.Color.HexStringToColor(c).color;
@@ -1152,7 +1153,7 @@ export class BattleScene extends Phaser.Scene {
         const x = 20 + (i % 2) * 306, y = 16 + Math.floor(i / 2) * 90, w = 294, h = 80;
         const active = mon === this.engine.playerMon, fainted = mon.hp <= 0;
         const max = maxHp(mon), f = mon.hp / max;
-        const icon = this.add.image(42, 42, spriteKey(mon.speciesId, "front")).setScale(3);
+        const icon = this.add.image(42, 42, spriteKey(mon.speciesId, "front")).setScale(1.5);
         const name = this.text(80, 6, displayName(mon), 26);
         const lv = this.text(w - 14, 8, `Lv${mon.level}`, 22).setOrigin(1, 0);
         const barBg = this.add.rectangle(80, 44, 150, 10, 0x404850).setOrigin(0, 0.5);
@@ -1221,7 +1222,7 @@ export class BattleScene extends Phaser.Scene {
     this.clearUi();
     const bg = this.add.rectangle(W / 2, PANEL_Y / 2, W, PANEL_Y, 0x101820).setDepth(45);
     const rays = this.add.graphics().setDepth(45);
-    const sprite = this.add.image(W / 2, 220, spriteKey(mon.speciesId, "front")).setOrigin(0.5, 1).setScale(8).setDepth(46);
+    const sprite = this.add.image(W / 2, 220, spriteKey(mon.speciesId, "front")).setOrigin(0.5, 1).setScale(4).setDepth(46);
     const before = displayName(mon);
     await this.say(`Ồ? ${before} đang tiến hóa!`);
     let cancelled = false;
