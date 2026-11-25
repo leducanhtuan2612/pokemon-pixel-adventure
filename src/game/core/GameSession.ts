@@ -5,7 +5,7 @@ import { getSpecies } from "../data/species";
 import { sideQuestFor } from "./sideQuests";
 import {
   createPokemon, displayName, evolve, expForLevel, healPokemon, itemEvolution, maxHp, slot, type PokemonInstance,
-} from "./linh thú";
+} from "./pokemon";
 
 export interface SaveData {
   version: number;
