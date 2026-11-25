@@ -86,12 +86,19 @@ export class PlayerController {
     return null;
   }
 
-  private tryStep(dir: Direction) {
+  /** Quest auto-walk: a single collision-checked step without keyboard input. */
+  autoStep(dir: Direction): boolean {
+    if (this.moving) return false;
+    this.face(dir);
+    return this.tryStep(dir);
+  }
+
+  private tryStep(dir: Direction): boolean {
     const v = DIR_VECTORS[dir];
     const nx = this.tile.x + v.x, ny = this.tile.y + v.y, dx = v.x, dy = v.y;
     if (this.world.isBlocked(nx, ny)) {
       setCharacterFrame(this.sprite, dir, 0);
-      return;
+      return false;
     }
     this.moving = true;
     this.tile = { x: nx, y: ny };
@@ -119,5 +126,6 @@ export class PlayerController {
         this.onStep?.(this.tile);
       },
     });
+    return true;
   }
 }
