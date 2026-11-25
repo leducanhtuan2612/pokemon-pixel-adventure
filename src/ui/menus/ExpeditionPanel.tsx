@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { getSpecies } from "../../game/data/species";
-import { createPokemon, maxHp } from "../../game/core/pokemon";
+import { createPokemon } from "../../game/core/pokemon";
 import { session } from "../../game/core/GameSession";
 import { Sprite, Window } from "./common";
 import { useGameStore } from "../../state/gameStore";
