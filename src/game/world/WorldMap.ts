@@ -88,7 +88,8 @@ export class WorldMap {
     }
     for (const it of this.def.items ?? []) {
       if (it.hidden || this.picked.has(it.id)) continue;
-      const p = this.project(it.x, it.y);\n      this.itemSprites.set(it.id, this.scene.add.image(p.x, p.y - 3, PROP.itemBall).setOrigin(0.5, 0.5).setDepth(depthFor(it.x + it.y, 0.2)));
+      const p = this.project(it.x, it.y);
+      this.itemSprites.set(it.id, this.scene.add.image(p.x, p.y - 3, PROP.itemBall).setOrigin(0.5, 0.5).setDepth(depthFor(it.x + it.y, 0.2)));
     }
     for (const def of this.def.npcs) this.spawnNpc(def, defeated.includes(def.id));
     this.grassFront = this.scene.add.image(0, 0, PROP.grassFront).setOrigin(0, 0).setVisible(false);
