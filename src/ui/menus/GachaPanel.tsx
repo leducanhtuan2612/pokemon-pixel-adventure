@@ -31,6 +31,7 @@ export function GachaPanel() {
     }
     let pity = save.pity;
     let crystals = save.crystals - count * 100;
+    let hasRareOrBetter = false;
     const ids: string[] = [];
 
     for (let i = 0; i < count; i++) {
@@ -39,10 +40,13 @@ export function GachaPanel() {
       if (pity >= 9 || roll < 0.01) {
         rarity = "legendary";
         pity = 0;
+        hasRareOrBetter = true;
       } else {
         rarity = roll < 0.10 ? "rare" : roll < 0.35 ? "uncommon" : "common";
         pity++;
+        if (rarity === "rare") hasRareOrBetter = true;
       }
+      if (count === 10 && i === 9 && !hasRareOrBetter) { rarity = "rare"; hasRareOrBetter = true; }
       const pool = SPECIES_LIST.filter((pet) => pet.rarity === rarity);
       const pet = pool[Math.floor(Math.random() * pool.length)] || SPECIES_LIST[0];
       ids.push(pet.id);
@@ -59,7 +63,7 @@ export function GachaPanel() {
     setSave(next);
     setResults(ids);
     session.changed();
-    notify("Triệu hồi hoàn tất! Linh thú trùng đã đổi thành Tinh Thạch.");
+    notify(count === 10 ? "Triệu hồi ×10 xong: bảo đảm ít nhất 1 linh thú Hiếm hoặc Huyền thoại." : "Triệu hồi hoàn tất! Linh thú trùng đã đổi thành Tinh Thạch.");
   };
 
   return <Window title="✧ ĐIỆN THỜ TRIỆU HỒI · WILDLANDS" className="px-gacha" hint="ESC: quay lại">
@@ -73,7 +77,7 @@ export function GachaPanel() {
       <span>Tinh anh <b>25%</b></span>
       <span>Phổ thông <b>65%</b></span>
     </div>
-    <p className="ppa-gacha-note">Bảo hiểm: sau 9 lượt chưa có Huyền thoại, lượt kế tiếp chắc chắn nhận được. Linh thú trùng đổi Tinh Thạch. Bạn đồng hành mới sẽ vào đội hoặc kho linh thú.</p>
+    <p className="ppa-gacha-note">Bảo hiểm Huyền thoại: sau 9 lượt trượt, lượt kế tiếp chắc chắn trúng. Gacha ×10 bảo đảm ít nhất 1 linh thú Hiếm hoặc Huyền thoại. Linh thú trùng đổi Tinh Thạch. Bạn đồng hành mới sẽ vào đội hoặc kho linh thú.</p>
     <div className="ppa-gacha-actions">
       <button onClick={() => summon(1)}>TRIỆU HỒI ×1 <b>100 ✦</b></button>
       <button onClick={() => summon(10)}>TRIỆU HỒI ×10 <b>1.000 ✦</b></button>
