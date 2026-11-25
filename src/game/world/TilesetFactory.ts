@@ -31,15 +31,35 @@ const hash = (a: number, b: number) => {
 
 const GRASS = PAL.ground["."];
 
-function paintGround(ctx: Ctx, ox: number, oy: number, alt: boolean) {
-  ctx.fillStyle = GRASS;
+/** Rich grass base: subtle tonal patches, blades, clover and a warm sunlit edge.
+ * Seeded per logical tile so the landscape is detailed but stable between loads. */
+function paintGround(ctx: Ctx, ox: number, oy: number, alt: boolean, seed = 0) {
+  const base = alt ? "#91ca67" : GRASS;
+  ctx.fillStyle = base;
   ctx.fillRect(ox, oy, T, T);
   paintPattern(ctx, pat(alt ? "groundAlt" : "ground"), PAL.ground, ox, oy);
+  // Soft pixel clusters break the repeated 16px pattern into natural-looking ground.
+  for (let i = 0; i < 13; i++) {
+    const x = 1 + Math.floor(hash(seed + 7, i) * 14);
+    const y = 1 + Math.floor(hash(seed + 29, i) * 14);
+    const tone = i % 4 === 0 ? "#c2e99a" : i % 3 === 0 ? "#79bd55" : "#a5dc78";
+    px(ctx, ox, oy, x, y, tone, i % 5 === 0 ? 2 : 1, i % 6 === 0 ? 2 : 1);
+    if (i % 4 === 0) px(ctx, ox, oy, x, y + 1, "#5d9f45");
+  }
+  // Tiny directional light and contact shading give each diamond a readable edge.
+  px(ctx, ox, oy, 0, 0, "rgba(238,255,206,0.20)", 16, 1);
+  px(ctx, ox, oy, 0, 15, "rgba(38,83,43,0.14)", 16, 1);
 }
 
-function paintFlowers(ctx: Ctx, ox: number, oy: number, frame: number, pink: boolean) {
-  paintGround(ctx, ox, oy, false);
+function paintFlowers(ctx: Ctx, ox: number, oy: number, frame: number, pink: boolean, seed = 0) {
+  paintGround(ctx, ox, oy, false, seed);
   paintPattern(ctx, pat(frame ? "flower1" : "flower0"), pink ? PAL.flowerB : PAL.flowerA, ox, oy);
+  // A few scattered petals and leaf highlights add volume without enlarging the tile.
+  for (let i = 0; i < 4; i++) {
+    const x = 2 + Math.floor(hash(seed + 101, i) * 12);
+    const y = 2 + Math.floor(hash(seed + 117, i) * 12);
+    px(ctx, ox, oy, x, y, pink ? "#ffd1e1" : "#fff8d0");
+  }
 }
 
 function paintMoss(ctx: Ctx, ox: number, oy: number, seed: number) {
@@ -86,14 +106,21 @@ function paintEdges(ctx: Ctx, ox: number, oy: number, m: number, edge: string, o
 }
 
 function paintPath(ctx: Ctx, ox: number, oy: number, m: number, seed: number) {
-  ctx.fillStyle = "#e6cc90";
+  ctx.fillStyle = "#d8b77c";
   ctx.fillRect(ox, oy, T, T);
+  // Warm packed earth with a slightly darker center and soft grass-frayed borders.
+  for (let i = 0; i < 20; i++) {
+    const x = 1 + Math.floor(hash(seed + 211, i) * 14), y = 1 + Math.floor(hash(seed + 233, i) * 14);
+    const color = i % 5 === 0 ? "#f4dfac" : i % 3 === 0 ? "#b88b55" : "#e7c994";
+    px(ctx, ox, oy, x, y, color, i % 4 === 0 ? 2 : 1, 1);
+  }
   for (let i = 0; i < 5; i++) {
     const x = 2 + Math.floor(hash(seed, i) * 12), y = 2 + Math.floor(hash(seed, i + 9) * 12);
-    px(ctx, ox, oy, x, y, i % 2 ? "#d2b274" : "#f2e0b0");
-    if (i % 2) px(ctx, ox, oy, x + 1, y, "#d2b274");
+    px(ctx, ox, oy, x, y, i % 2 ? "#c49b63" : "#f2e0b0", i % 2 ? 2 : 1, 1);
   }
-  paintEdges(ctx, ox, oy, m, "#b8945c");
+  paintEdges(ctx, ox, oy, m, "#a98551");
+  if (!(m & N)) px(ctx, ox, oy, 2, 2, "#82bf59", 12, 1);
+  if (!(m & S)) px(ctx, ox, oy, 2, 13, "#82bf59", 12, 1);
 }
 
 function paintSand(ctx: Ctx, ox: number, oy: number, m: number, seed: number) {
@@ -157,8 +184,8 @@ export function painterFor(desc: string): GroundPainter {
   const [kind, a = "0", b = "0", c = "0"] = desc.split(":");
   const n1 = Number(a), n2 = Number(b), n3 = Number(c);
   switch (kind) {
-    case "ground": return (ctx, x, y) => paintGround(ctx, x, y, n1 === 1);
-    case "flower": return (ctx, x, y) => paintFlowers(ctx, x, y, n1, n2 === 1);
+    case "ground": return (ctx, x, y) => paintGround(ctx, x, y, n1 === 1, n2);
+    case "flower": return (ctx, x, y) => paintFlowers(ctx, x, y, n1, n2 === 1, n3);
     case "tall": return (ctx, x, y) => paintTallGrass(ctx, x, y);
     case "moss": return (ctx, x, y) => paintMoss(ctx, x, y, n1);
     case "path": return (ctx, x, y) => paintPath(ctx, x, y, n1, n2);
