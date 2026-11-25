@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { PROP, TILE_SIZE, ISO_TILE_W, ISO_TILE_H, ensureCharacterTexture } from "../world/TilesetFactory";
+import { PROP, ISO_TILE_W, ISO_TILE_H, ensureCharacterTexture } from "../world/TilesetFactory";
 import { DIR_VECTORS, type Direction, type Point } from "../world/types";
 import { depthFor, setCharacterFrame, type WorldMap } from "../world/WorldMap";
 
