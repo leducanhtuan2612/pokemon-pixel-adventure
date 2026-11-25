@@ -1,14 +1,15 @@
 import { session } from "../game/core/GameSession";
 import { displayName } from "../game/core/pokemon";
 import { useGameStore } from "../state/gameStore";
-import { objectiveFor } from "../game/core/objectives";
+import { questFor } from "../game/core/objectives";
 import { HpBar, Sprite } from "./menus/common";
 
 export function SidePanel() {
   useGameStore((s) => s.version);
   const d = session.data;
-  const objective = objectiveFor(d);
-  const mainStep = !d.starterChosen ? "01 / STARTER" : d.dex.caught.length === 0 ? "02 / FIRST CATCH" : !d.defeated.includes("joey") ? "03 / FIRST DUEL" : "ROUTE QUEST";
+  const quest = questFor(d);
+  const objective = quest.description;
+  const mainStep = `${String(quest.stage).padStart(2, "0")} / ${quest.stages}`;
   return <aside className="side-panel">
     <div className="panel-heading"><span>YOUR ADVENTURE</span><b>01</b></div>
     <div className="trainer-card">
@@ -24,7 +25,18 @@ export function SidePanel() {
       </div>) : <small className="muted">Chưa có Pokémon.</small>}
     </div>
     <div className="section-title">NHIỆM VỤ CHÍNH <b className="quest-step">{mainStep}</b></div>
-    <div className="quest quest-active"><div className="quest-icon">✦</div><div className="quest-copy"><strong>Hành trình Greenleaf</strong><p>{objective}</p><small>NPC: Z/Enter · Túi đồ: ESC · Đội hình nhanh: TAB</small></div></div>
+    <div className="quest quest-active">
+      <div className="quest-icon">✦</div>
+      <div className="quest-copy">
+        <strong>{quest.title}</strong><p>{objective}</p>
+        <div className="quest-meter" role="progressbar" aria-label="Tiến độ nhiệm vụ" aria-valuenow={quest.percent} aria-valuemin={0} aria-valuemax={100}>
+          <span style={{ width: `${quest.percent}%` }} />
+        </div>
+        <div className="quest-meter-label"><span>TIẾN ĐỘ</span><b>{quest.percent}%</b></div>
+        <small>Điểm đến: {quest.target.label}</small>
+        <button className="quest-navigate" onClick={() => window.dispatchEvent(new Event("game:quest-navigate"))}>⌖ ĐI ĐẾN NHIỆM VỤ <span>↗</span></button>
+      </div>
+    </div>
     <div className="section-title">ĐIỀU KHIỂN</div>
     <div className="controls">
       <span><kbd>WASD</kbd><kbd>←↑→↓</kbd></span><small>Di chuyển</small>
