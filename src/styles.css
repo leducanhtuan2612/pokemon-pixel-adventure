@@ -183,3 +183,25 @@
 .quick-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:-10px 0 16px}
 .quick-actions button{border:1px solid #35494a;border-radius:7px;background:#1c2b31;color:#cfe2d6;padding:7px 4px;font:700 9px "DM Mono",monospace;letter-spacing:.04em;cursor:pointer;transition:background .15s,border-color .15s}
 .quick-actions button:hover{background:#283d44;border-color:#88b07b;color:#eef6d8}
+
+/* Summoning and gauntlet progression screens */
+.px-gacha,.px-expedition{width:min(760px,94%);max-height:92%;overflow:auto;z-index:30}
+.ppa-gacha-head{padding:14px;border:1px solid #7b9e75;border-radius:9px;background:linear-gradient(125deg,#263f38,#304b5c);color:#f2f7dd}
+.ppa-gacha-head b{font:700 15px "DM Mono",monospace;color:#e2f3a9}.ppa-gacha-head p{font-size:11px;margin:7px 0 0;color:#c7dbd0}
+.ppa-gacha-rates{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0}
+.ppa-gacha-rates span{display:flex;flex-direction:column;gap:5px;padding:8px;border:1px solid #cbd7df;border-radius:6px;background:#edf2f4;font-size:10px;color:#475c6a}
+.ppa-gacha-rates b{font-size:14px;color:#2d4656}.ppa-gacha-note{font-size:11px;line-height:1.6;color:#536775;padding:9px;background:#e8eff3;border-radius:6px}
+.px-gacha button,.px-expedition button{border:2px solid #7897a9;border-radius:6px;background:#e0edf5;color:#2a465a;padding:10px 12px;font-weight:700;font-size:11px;cursor:pointer;margin:3px}
+.px-gacha button:hover,.px-expedition button:hover{filter:brightness(1.04)}
+.ppa-gacha-results{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin:12px 0}
+.ppa-gacha-results article{display:flex;flex-direction:column;align-items:center;padding:8px 3px;background:#e7eff4;border:1px solid #c2d2dd;border-radius:7px;text-align:center;color:#2d4354}
+.ppa-gacha-results b{font-size:10px}.ppa-gacha-results small{font-size:9px;color:#70818c}
+.ppa-stage-list{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:5px;margin:12px 0}
+.ppa-stage-list button{padding:8px 2px;margin:0;font:700 10px "DM Mono",monospace}
+.ppa-stage-list button.active{background:#d8edaa;border-color:#8bab63;color:#2c452d;box-shadow:0 0 0 2px #9abf6b55}
+.ppa-stage-list button.cleared{background:#d5e9db;border-color:#77a88a;color:#315b42}
+.ppa-stage-list button:disabled{opacity:.36;cursor:not-allowed}
+.ppa-expedition-foe{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #b5c9d7;border-radius:8px;background:#edf3f7;color:#2b4657}
+.ppa-expedition-foe small{font:10px "DM Mono",monospace;color:#658095}.ppa-expedition-foe h3{margin:5px 0;font-size:18px}.ppa-expedition-foe p{font-size:11px;margin:0;color:#647b8b}
+.ppa-expedition-result{padding:10px;border-radius:6px;background:#e2f0d9;color:#335e3b;font-weight:700;font-size:12px}
+@media(max-width:520px){.ppa-gacha-rates{grid-template-columns:repeat(2,1fr)}.ppa-gacha-results{grid-template-columns:repeat(3,1fr)}.ppa-stage-list{grid-template-columns:repeat(6,1fr)}}
