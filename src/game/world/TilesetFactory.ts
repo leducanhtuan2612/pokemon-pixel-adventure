@@ -173,20 +173,43 @@ export function painterFor(desc: string): GroundPainter {
 }
 
 /** Packs every distinct ground descriptor into one canvas texture for a Phaser tileset. */
+export const ISO_TILE_W = 64;
+export const ISO_TILE_H = 32;
+
+/** Build a true diamond/isometric ground atlas. Existing 16px pixel painters
+ * are retained as source art, then projected into clipped 2:1 diamond cells. */
 export function buildAtlas(scene: Phaser.Scene, key: string, descriptors: string[]): Map<string, number> {
   const cols = 32, rows = Math.max(1, Math.ceil(descriptors.length / cols));
   const canvas = document.createElement("canvas");
-  canvas.width = cols * T;
-  canvas.height = rows * T;
+  canvas.width = cols * ISO_TILE_W;
+  canvas.height = rows * ISO_TILE_H;
   const ctx = canvas.getContext("2d")!;
   ctx.imageSmoothingEnabled = false;
   const index = new Map<string, number>();
   descriptors.forEach((d, i) => {
-    painterFor(d)(ctx, (i % cols) * T, Math.floor(i / cols) * T);
+    const source = document.createElement("canvas");
+    source.width = T; source.height = T;
+    const painter = source.getContext("2d")!;
+    painter.imageSmoothingEnabled = false;
+    painterFor(d)(painter, 0, 0);
+    const x = (i % cols) * ISO_TILE_W, y = Math.floor(i / cols) * ISO_TILE_H;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x + ISO_TILE_W / 2, y);
+    ctx.lineTo(x + ISO_TILE_W, y + ISO_TILE_H / 2);
+    ctx.lineTo(x + ISO_TILE_W / 2, y + ISO_TILE_H);
+    ctx.lineTo(x, y + ISO_TILE_H / 2);
+    ctx.closePath(); ctx.clip();
+    ctx.drawImage(source, x, y, ISO_TILE_W, ISO_TILE_H);
+    // Fine bevel and soft ambient edge separate adjacent terrain diamonds.
+    ctx.strokeStyle = "rgba(20,36,42,0.34)"; ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
     index.set(d, i);
   });
   if (scene.textures.exists(key)) scene.textures.remove(key);
-  scene.textures.addCanvas(key, canvas);
+  const texture = scene.textures.addCanvas(key, canvas);
+  descriptors.forEach((_, i) => texture.add(String(i), 0, (i % cols) * ISO_TILE_W, Math.floor(i / cols) * ISO_TILE_H, ISO_TILE_W, ISO_TILE_H));
   return index;
 }
 
