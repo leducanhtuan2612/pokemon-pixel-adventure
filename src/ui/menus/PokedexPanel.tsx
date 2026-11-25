@@ -14,13 +14,13 @@ export function PokedexPanel() {
   const isSeen = seen.includes(sel.dex), isCaught = caught.includes(sel.dex);
   return <div className="px-fullscreen px-dex">
     <div className="px-dex-left">
-      <div className="px-dex-count">ĐÃ THẤY {seen.length} · ĐÃ BẮT {caught.length} / {list.length}</div>
+      <div className="px-dex-count">ĐÃ GẶP {seen.length} · ĐÃ KẾT NỐI {caught.length} / {list.length}</div>
       <div className="px-dex-art">{isSeen ? <Sprite speciesId={sel.id} size={128} silhouette={!isCaught} /> : <div className="px-unknown">?</div>}</div>
       <div className="px-dex-name">No.{String(sel.dex).padStart(3, "0")} {isSeen ? sel.name : "?????"}</div>
       {isCaught ? <>
         <div className="px-types">{sel.types.map((t) => <TypeChip key={t} type={t} />)}</div>
         <p className="px-entry">{sel.dexEntry}</p>
-      </> : <p className="px-entry">{isSeen ? "Hãy bắt Pokémon này để xem thêm thông tin." : "Chưa gặp Pokémon này."}</p>}
+      </> : <p className="px-entry">{isSeen ? "Hãy bắt linh thú này để xem thêm thông tin." : "Chưa gặp linh thú này."}</p>}
     </div>
     <div className="px-dex-list" ref={(el) => el?.querySelector(".on")?.scrollIntoView({ block: "nearest" })}>
       {list.map((sp, i) => <button key={sp.id} className={`px-row ${i === index ? "on" : ""}`} onMouseEnter={() => setIndex(i)}>
