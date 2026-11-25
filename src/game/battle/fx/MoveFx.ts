@@ -196,6 +196,24 @@ export class MoveFx {
     if (damaging && (move.power >= 75 || move.ohko)) void this.cutIn(move.name, col, side);
     this.master = true;
     try {
+      const heavy = move.power >= 75 || !!move.ohko;
+      if (damaging) {
+        // Elemental motes converge into the pet before its strike.
+        const stopRune = this.x3.sigil(u, col, heavy ? 0.78 : 0.48);
+        const charge = await this.x3.charge(u, col, heavy ? 360 : 210, heavy ? 22 : 11, heavy ? 102 : 66);
+        charge.forEach((orb) => orb.destroy());
+        if (heavy) {
+          await Promise.all([
+            this.x3.orbit(u, 8, col, 420, 48, 20),
+            this.x3.perspRing(u, Math.atan2(t.y - u.y, t.x - u.x), col, 0.82, 430, t),
+          ]);
+        }
+        await stopRune();
+      } else {
+        const stopRune = this.x3.sigil(u, col, 0.62);
+        await this.x3.orbit(u, 7, col, 460, 38, 17);
+        await stopRune();
+      }
       const sig = this.signatures[move.id];
       if (sig) await sig.call(this, ctx);
       else if (!damaging) await this.statusGeneric(ctx);
