@@ -49,7 +49,7 @@ export function drawCompanion(speciesId:string,pose:"idle"|"battle"="idle"){
   const pet=getPet(speciesId), c=document.createElement("canvas");c.width=64;c.height=64;
   const g=c.getContext("2d")!;g.imageSmoothingEnabled=false;g.scale(2,2);
   const [main,accent,shadow]=pet.palette, light=lighten(main,.36), dark=darken(shadow,.78), ink="#24323a";
-  oval(g,16,28,10,2.1,shadow,"","",0);
+  oval(g,16,28,10,2.1,shadow,"",0);
   // Tail and back ornaments are drawn before the body for a layered silhouette.
   if(pet.silhouette==="quadruped"||pet.silhouette==="long"){
     poly(g,[[8,21],[3,18],[1,13],[5,15],[11,18]],accent,ink,1);
