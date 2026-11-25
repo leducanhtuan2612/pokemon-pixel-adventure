@@ -9,9 +9,9 @@ export const DIR_VECTORS: Record<Direction, Point> = {
 };
 
 /** Look ids map to palettes in pixelArt.ts — one character template, many outfits. */
-export type CharacterLook = "player" | "nurse" | "ranger" | "bugCatcher" | "lass" | "hiker" | "guardian";
+export type CharacterLook = "player" | "nurse" | "ranger" | "bugCatcher" | "lass" | "hiker" | "guardian" | "clerk";
 
-export type NpcRole = "healer" | "guide" | "trainer" | "boss";
+export type NpcRole = "healer" | "guide" | "trainer" | "boss" | "mart";
 
 export interface TeamMember { speciesId: string; level: number }
 
@@ -33,6 +33,12 @@ export interface NpcDef {
   lockedDialog?: string[];
   /** Where the NPC steps to once defeated (e.g. a guardian clearing the road). */
   moveToWhenDefeated?: Point;
+  /** Base prize money (× level of the last Pokémon). */
+  prize?: number;
+  /** This NPC hands out the starter Pokémon. */
+  givesStarter?: boolean;
+  /** Badge id awarded on defeat. */
+  badge?: string;
 }
 
 export interface BuildingDef {

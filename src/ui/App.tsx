@@ -1,27 +1,61 @@
 import { useEffect, useRef, useState } from "react";
 import Phaser from "phaser";
 import { createGameConfig } from "../game/config";
+import { session } from "../game/core/GameSession";
 import { useGameStore } from "../state/gameStore";
+import { MenuLayer } from "./menus/MenuLayer";
+import { SidePanel } from "./SidePanel";
 
 export default function App() {
   const host = useRef<HTMLDivElement>(null);
   const [started, setStarted] = useState(false);
   const setReady = useGameStore((s) => s.setReady);
+  const hasSave = session.data.starterChosen;
 
   useEffect(() => {
     if (!host.current) return;
     const game = new Phaser.Game(createGameConfig(host.current));
-    if (import.meta.env.DEV) (window as unknown as { __game?: Phaser.Game }).__game = game;
+    if (import.meta.env.DEV) Object.assign(window, { __game: game, __session: session });
     game.events.once("ready", () => setReady(true));
     return () => { game.destroy(true); setReady(false); };
   }, [setReady]);
 
+  const start = (fresh: boolean) => {
+    if (fresh && hasSave && !confirm("Bắt đầu game mới sẽ xóa tiến trình hiện tại. Tiếp tục?")) return;
+    if (fresh) { session.reset(); sessionStorage.setItem("ppa-autostart", "1"); window.location.reload(); return; }
+    setStarted(true);
+    (window as unknown as { __ppaStarted?: boolean }).__ppaStarted = true;
+    window.dispatchEvent(new Event("game:start"));
+  };
+
+  useEffect(() => {
+    if (sessionStorage.getItem("ppa-autostart")) { sessionStorage.removeItem("ppa-autostart"); start(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return <main className="app-shell">
     <header className="topbar"><div className="brand-mark">✦</div><div><strong>POKÉMON</strong><span>PIXEL ADVENTURE</span></div><div className="status-pill"><i /> PIXEL WORLD</div></header>
-    <section className="game-layout"><div className="game-frame"><div className="frame-label"><span>MAP 01</span><span>GREENLEAF VILLAGE</span></div><div ref={host} className="game-host" />
-      {!started && <div className="start-overlay"><div className="eyebrow">A NEW JOURNEY</div><h1>YOUR STORY<br/><em>STARTS HERE.</em></h1><p>Khám phá thế giới pixel, gặp gỡ Pokémon<br/>và chinh phục những thử thách đầu tiên.</p><button onClick={() => {setStarted(true); (window as unknown as { __ppaStarted?: boolean }).__ppaStarted = true; window.dispatchEvent(new Event("game:start"));}}>BẮT ĐẦU PHIÊU LƯU <span>→</span></button><small>WASD / ← ↑ → ↓ để di chuyển</small></div>}
-      <div className="frame-bottom"><span>▲ KANTO-LIKE REGION</span><span>BUILD 0.1.0</span></div></div>
-      <aside className="side-panel"><div className="panel-heading"><span>YOUR ADVENTURE</span><b>01</b></div><div className="trainer-card"><div className="trainer-avatar">🧢</div><div><strong>PIXEL TRAINER</strong><small>New explorer</small></div><span className="level">LV. 01</span></div><div className="section-title">JOURNEY LOG</div><div className="quest"><div className="quest-icon">✦</div><div><strong>Greenleaf Forest Trial</strong><p>Thắng Finn, Willow và Moss để mở thử thách Forest Guardian.</p><span className="quest-progress">OBJECTIVE · 3 TRAINERS + GUARDIAN</span></div></div><div className="section-title">CONTROLS</div><div className="controls"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><small>Move</small><span><kbd>ENTER</kbd><kbd>Z</kbd></span><small>Interact / next</small><span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd></span><small>Battle actions</small><span><kbd>ESC</kbd></span><small>Objective</small></div><div className="tip">💡 <span>Cỏ cao có thể kích hoạt encounter. Nurse Maple (trước Pokémon Center) hồi phục đội. Tiến trình được lưu tự động.</span></div></aside></section>
-    <footer><span>© 2026 PIXEL ADVENTURE STUDIO</span><span>MADE FOR EXPLORERS <b>✦</b></span></footer>
+    <section className="game-layout">
+      <div className="game-frame">
+        <div className="frame-label"><span>MAP 01</span><span>GREENLEAF VILLAGE</span></div>
+        <div className="game-stage">
+          <div ref={host} className="game-host" />
+          <MenuLayer />
+          {!started && <div className="start-overlay">
+            <div className="eyebrow">A NEW JOURNEY</div>
+            <h1>YOUR STORY<br /><em>STARTS HERE.</em></h1>
+            <p>Khám phá thế giới pixel, gặp gỡ Pokémon<br />và chinh phục những thử thách đầu tiên.</p>
+            <div className="start-buttons">
+              {hasSave && <button onClick={() => start(false)}>TIẾP TỤC <span>→</span></button>}
+              <button className={hasSave ? "secondary" : ""} onClick={() => (hasSave ? start(true) : start(false))}>{hasSave ? "GAME MỚI" : "BẮT ĐẦU PHIÊU LƯU"} <span>→</span></button>
+            </div>
+            <small>WASD / ← ↑ → ↓ để di chuyển · Z/Enter tương tác · ESC menu</small>
+          </div>}
+        </div>
+        <div className="frame-bottom"><span>▲ KANTO-LIKE REGION</span><span>BUILD 0.2.0</span></div>
+      </div>
+      <SidePanel />
+    </section>
+    <footer><span>© 2026 PIXEL ADVENTURE STUDIO · Pokémon sprites: @balavicknesh</span><span>MADE FOR EXPLORERS <b>✦</b></span></footer>
   </main>;
 }

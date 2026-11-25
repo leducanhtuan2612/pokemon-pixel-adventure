@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+import { BattleScene } from "./scenes/BattleScene";
+import { BootScene } from "./scenes/BootScene";
 import { OverworldScene } from "./scenes/OverworldScene";
 
 export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameConfig {
@@ -12,6 +14,6 @@ export function createGameConfig(parent: HTMLElement): Phaser.Types.Core.GameCon
     roundPixels: true,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     physics: { default: "arcade", arcade: { debug: false } },
-    scene: [OverworldScene],
+    scene: [BootScene, OverworldScene, BattleScene],
   };
 }

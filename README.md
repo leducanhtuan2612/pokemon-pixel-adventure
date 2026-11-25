@@ -24,11 +24,26 @@ To add a map: copy `greenleaf.ts`, edit the layout/data and register it in `src/
 
 Gameplay loop on this map: talk to NPCs and signs, catch Pokémon in tall grass, beat Finn, Willow and Moss, then the Forest Guardian; the Guardian steps aside and the east exit unlocks Crystal Cave.
 
+## Gameplay (v0.2)
+- **Starter:** talk to Ranger Oak and pick Bulbasaur, Charmander or Squirtle.
+- **31 Pokémon** (Gen 1 lines incl. evolutions) with Gen 3 base stats, IVs, growth rates, catch rates and EXP yields.
+- **~75 moves** with type, power, accuracy, PP, priority, crits, STAB, drain/recoil, flinch, stat stages and status (burn, poison, paralysis, sleep). Full Gen 3 type chart (17 types).
+- **FireRed-style battles** (`scenes/BattleScene.ts`): FIGHT / BAG / POKéMON / RUN, animated HP & EXP bars, type-coloured attack effects, Poké Ball shakes, forced switching, multi-Pokémon trainers, smart trainer AI.
+- **Level-up:** learn moves (with "forget a move" prompt) and evolve at level or with Fire/Thunder/Leaf Stone.
+- **Menus** (React): Pokédex (seen/caught), Party (summary, stats, moves, reorder), PC Box, Bag, Poké Mart, Save.
+- **Economy:** prize money from trainers, lose half on blackout.
+
+Battle rules live in `src/game/battle/BattleEngine.ts` (pure TypeScript, no Phaser); data lives in `src/game/data/{species,moves,types,items}.ts`.
+
+### Pokémon sprites
+Front sprites are in `src/assets/sprites/pokemon/front/` named by National Dex number (`001.png` … `151.png`), sliced from the pixel sheet by **@balavicknesh** (fan art — credit the artist if you publish). Optional back sprites go in `.../back/`; without them the front sprite is mirrored. Missing art falls back to a generated placeholder.
+
 ## Controls
 - WASD / Arrow keys: move
 - Enter / Space / Z: interact, advance dialog
-- 1: Attack · 2: Capture · 3: Potion · 4: Run during battle
-- Esc: current objective (battle help during battles)
+- Arrows + Z/Enter in battle menus, X/Esc to go back
+- Tab: party
+- Esc: start menu (Pokédex, Pokémon, Bag, PC Box, Save)
 
 ## Notes
 The current map is a fully playable first-area prototype built from procedural pixel shapes (no external art required). It is designed to be extended with authored tilemaps, animations, sound, quest tracking, additional regions and richer battle moves.

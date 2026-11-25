@@ -17,7 +17,7 @@ export class DialogBox {
   private fullText = "";
 
   constructor(private scene: Phaser.Scene) {
-    const x = (scene.scale.width - W) / 2, y = scene.scale.height - H - 34;
+    const x = (scene.scale.width - W) / 2, y = scene.scale.height - H - 10;
     const g = scene.add.graphics();
     g.fillStyle(0x2a3a48, 1).fillRoundedRect(0, 0, W, H, 8);
     g.fillStyle(0xf8f8f0, 1).fillRoundedRect(3, 3, W - 6, H - 6, 6);

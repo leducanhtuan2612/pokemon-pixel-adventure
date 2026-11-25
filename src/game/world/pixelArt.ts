@@ -123,6 +123,7 @@ export const CHARACTER_PALETTES: Record<CharacterLook, Palette> = {
   bugCatcher: { ...base, r: "#f0d050", R: "#c0a030", h: "#4a3020", j: "#80c060", g: "#e0e0e0", p: "#4060a0" },
   lass: { ...base, r: "#e06080", R: "#b04060", h: "#c07040", j: "#f088a8", g: "#ffffff", p: "#6040a0" },
   hiker: { ...base, r: "#a06030", R: "#704020", h: "#302020", j: "#c08040", g: "#708050", p: "#506040" },
+  clerk: { ...base, r: "#3a78c8", R: "#285898", h: "#5a3a2a", j: "#5aa0e0", g: "#f8f8f8", p: "#3a4a6a" },
   guardian: { ...base, r: "#6a3a9a", R: "#4a2a70", w: "#f0d060", h: "#e0e0f0", j: "#8a5ab8", g: "#d0b040", p: "#3a2a5a" },
 };
 
