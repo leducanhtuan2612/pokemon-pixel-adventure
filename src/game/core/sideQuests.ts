@@ -1,7 +1,6 @@
 import type { SaveData } from "./GameSession";
 import type { Point } from "../world/types";
 import { GREENLEAF } from "../data/maps/greenleaf";
-import { getSpecies } from "../data/species";
 
 export interface SideQuest {
   id: string;
