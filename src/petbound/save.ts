@@ -4,7 +4,7 @@ import type { PetInstance, WorldSave } from "./types";
 const KEY = "petbound-wildlands-save-v1";
 function initialSave(): WorldSave {
   return {
-    version: 1, playerName: "Người Nuôi", gold: 650, crystals: 500, essence: 0,
+    version: 1, playerName: "Người Nuôi", gold: 650, crystals: 500, essence: 0, gachaPity: 0,
     pets: [], party: [], stage: 1, highestStage: 0, claimedStages: [],
     unlockedZones: ["everdawn"], questStep: 0, questRewards: [],
     inventory: { herb: 3, tonic: 2, trainingManual: 1 },
@@ -37,6 +37,7 @@ function normalize(raw: Partial<WorldSave>): WorldSave {
     gold: Math.max(0, Number(raw.gold) || 0),
     crystals: Math.max(0, Number(raw.crystals) || 0),
     essence: Math.max(0, Number(raw.essence) || 0),
+    gachaPity: Math.max(0, Math.min(9, Math.floor(Number(raw.gachaPity) || 0))),
     highestStage: Math.max(0, Math.floor(Number(raw.highestStage) || 0)),
     stage: Math.max(1, Math.floor(Number(raw.stage) || 1)),
   };
