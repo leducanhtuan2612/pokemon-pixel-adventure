@@ -62,7 +62,7 @@ export class BattleScene extends Phaser.Scene {
   private playerSprite!: Phaser.GameObjects.Image;
   private foeBox!: InfoBox;
   private playerBox!: InfoBox;
-  private foengười nuôi?: Phaser.GameObjects.Sprite;
+  private foeTrainer?: Phaser.GameObjects.Sprite;
   private playerTrainer?: Phaser.GameObjects.Sprite;
   private idle: Partial<Record<Side, Phaser.Tweens.Tween>> = {};
   private lastAction = 0;
