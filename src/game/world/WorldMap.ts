@@ -192,6 +192,7 @@ export class WorldMap {
     switch (ch) {
       case "*": return [0, 1].map((f) => `flower:${f}:${h % 3 === 0 ? 1 : 0}`);
       case ":": return ["tall"];
+      case "M": return [`moss:${h % 7}`];
       case "=": case "E": return [`path:${this.mask8(x, y, (c) => c === "=" || c === "E" || c === "D")}:${h % 7}`];
       case "s": return [`sand:${this.mask8(x, y, (c) => c === "s" || c === "~")}:${h % 5}`];
       case "~": { const m = this.mask8(x, y, (c) => c === "~"); return [0, 1, 2].map((f) => `water:${m}:${f}:${(x + y * 2) % 3}`); }
