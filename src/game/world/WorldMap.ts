@@ -90,6 +90,7 @@ export class WorldMap {
       const bottomY = footprint.y + T / 2;
       const depth = depthFor(b.y + b.h - 1, 0.7);
       this.scene.add.image(footprint.x, bottomY, tex).setDisplaySize(width, height).setOrigin(0.5, 1).setDepth(depth);
+      this.decorateBuilding(b);
       if (windmill) {
         const blades = this.scene.add.image(footprint.x, bottomY - height + 28, PROP.blades).setDepth(depth + 0.01);
         this.scene.tweens.add({ targets: blades, angle: 360, duration: 9000, repeat: -1 });
@@ -105,6 +106,38 @@ export class WorldMap {
     for (const def of this.def.npcs) this.spawnNpc(def, defeated.includes(def.id));
     this.grassFront = this.scene.add.image(0, 0, PROP.grassFront).setOrigin(0, 0).setVisible(false);
     this.scene.time.addEvent({ delay: 420, loop: true, callback: () => this.animate() });
+  }
+
+  /** Small foreground set-dressing adds depth and scale to key buildings. */
+  private decorateBuilding(b: BuildingDef) {
+    const row = b.y + b.h;
+    if (row >= this.height) return;
+    const put = (texture: string, tileX: number, scale = 0.9) => {
+      if (tileX < 1 || tileX >= this.width - 1) return;
+      const p = this.project(tileX, row);
+      this.scene.add.image(p.x, p.y + 9, PROP.shadow).setOrigin(0.5, 1)
+        .setScale(scale * 1.35).setAlpha(0.75).setDepth(depthFor(row, 0.35));
+      const prop = this.scene.add.image(p.x, p.y + 7, texture).setOrigin(0.5, 1)
+        .setScale(scale).setDepth(depthFor(row, 0.8));
+      if (texture === PROP.planter || texture === PROP.lantern) {
+        this.scene.tweens.add({ targets: prop, y: prop.y - 1.5, duration: 1250, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+      }
+    };
+    if (b.style === "barn") {
+      put(PROP.hay, b.x + 1, 1);
+      put(PROP.crate, b.x + b.w - 2, 0.92);
+      put(PROP.barrel, b.x + b.w, 0.82);
+    } else if (b.style === "greenhouse") {
+      put(PROP.planter, b.x + 1, 0.9);
+      put(PROP.planter, b.x + b.w - 2, 0.9);
+      put(PROP.barrel, b.x + b.w, 0.78);
+    } else if (b.style === "shop") {
+      put(PROP.crate, b.x + 1, 0.85);
+      put(PROP.barrel, b.x + b.w - 2, 0.82);
+    } else if (!b.style || b.style === "house") {
+      put(PROP.planter, b.x + 1, 0.75);
+      put(PROP.planter, b.x + b.w - 2, 0.75);
+    }
   }
 
   destroy() { this.tilemap?.destroy(); }
