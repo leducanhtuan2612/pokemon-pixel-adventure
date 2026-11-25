@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { session } from "../../game/core/GameSession";
-import { calcStats, displayName, expForLevel, type PokemonInstance } from "../../game/core/linh thú";
+import { calcStats, displayName, expForLevel, type PokemonInstance } from "../../game/core/pokemon";
 import { getMove } from "../../game/data/moves";
 import { getSpecies } from "../../game/data/species";
 import { categoryOf } from "../../game/data/types";
