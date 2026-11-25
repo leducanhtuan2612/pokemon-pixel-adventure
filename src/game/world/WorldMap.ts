@@ -47,6 +47,12 @@ export class WorldMap {
   get pixelWidth() { return (this.width + this.height) * ISO_TILE_W / 2; }
   get pixelHeight() { return (this.width + this.height) * ISO_TILE_H / 2; }
   project(x: number, y: number): Point { return { x: (x - y + this.height) * ISO_TILE_W / 2, y: (x + y) * ISO_TILE_H / 2 }; }
+  /** Convert camera world coordinates back to the nearest logical isometric tile. */
+  unproject(screenX: number, screenY: number): Point {
+    const u = screenX / (ISO_TILE_W / 2) - this.height;
+    const v = screenY / (ISO_TILE_H / 2);
+    return { x: Math.round((u + v) / 2), y: Math.round((v - u) / 2) };
+  }
 
   charAt(x: number, y: number): string {
     if (x < 0 || y < 0 || x >= this.width || y >= this.height) return "T";
@@ -275,7 +281,7 @@ export class WorldMap {
     const shadow = this.scene.add.image(x, y + (critter ? 10 : 13), PROP.shadow).setDepth(depthFor(pos.x + pos.y, 0.1)).setScale(critter ? 0.8 : 1);
     const sprite = critter
       ? this.scene.add.sprite(x, y - 4, spriteKey(def.speciesId ?? "pidgey", "front")).setScale(1.5).setDepth(depthFor(pos.x + pos.y, 0.5))
-      : this.scene.add.sprite(x, y, ensureCharacterTexture(this.scene, def.look), 0).setDepth(depthFor(pos.y, 0.5));
+      : this.scene.add.sprite(x, y, ensureCharacterTexture(this.scene, def.look), 0).setDepth(depthFor(pos.x + pos.y, 0.5));
     const n: NpcRuntime = { def, x: pos.x, y: pos.y, home: { x: pos.x, y: pos.y }, facing: def.facing, moving: false, sprite, shadow };
     this.faceNpc(n, def.facing);
     if (critter) this.scene.tweens.add({ targets: sprite, scaleY: 1.6, duration: 500 + Math.random() * 300, yoyo: true, repeat: -1 });
