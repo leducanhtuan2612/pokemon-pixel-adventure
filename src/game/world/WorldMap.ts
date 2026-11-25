@@ -243,21 +243,22 @@ export class WorldMap {
 
   private placeProps() {
     for (let y = 0; y < this.height; y++) for (let x = 0; x < this.width; x++) {
-      const ch = this.charAt(x, y);
-      if (ch === "T") this.scene.add.image(x * T + 16, (y + 1) * T, PROP.tree).setOrigin(0.5, 1).setDepth(depthFor(y, 0.6));
-      else if (ch === "R") this.scene.add.image(x * T, y * T, PROP.rock).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
-      else if (ch === "S") this.scene.add.image(x * T, y * T, PROP.sign).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
-      else if (ch === "F") this.scene.add.image(x * T, y * T, PROP.fence).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
-      else if (ch === "Y") this.scene.add.image(x * T + 16, (y + 1) * T, PROP.apple).setOrigin(0.5, 1).setDepth(depthFor(y, 0.6));
-      else if (ch === "h") this.scene.add.image(x * T, y * T, PROP.hedge).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
-      else if (ch === "W") this.scene.add.image(x * T, y * T, PROP.well).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
-      else if (ch === "n") this.scene.add.image(x * T, y * T, PROP.bench).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
-      else if (ch === "m") this.scene.add.image(x * T, y * T, PROP.mailbox).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
-      else if (ch === "l") this.scene.add.image(x * T, y * T, PROP.lamp).setOrigin(0, 0).setDepth(depthFor(y, 0.6));
+      const ch = this.charAt(x, y), p = this.project(x, y), left = p.x - T / 2, top = p.y - T / 2;
+      const d = depthFor(x + y, 0.2);
+      if (ch === "T") this.scene.add.image(p.x, p.y + 16, PROP.tree).setOrigin(0.5, 1).setDepth(d + 0.4);
+      else if (ch === "R") this.scene.add.image(left, top, PROP.rock).setOrigin(0, 0).setDepth(d);
+      else if (ch === "S") this.scene.add.image(left, top, PROP.sign).setOrigin(0, 0).setDepth(d);
+      else if (ch === "F") this.scene.add.image(left, top, PROP.fence).setOrigin(0, 0).setDepth(d);
+      else if (ch === "Y") this.scene.add.image(p.x, p.y + 16, PROP.apple).setOrigin(0.5, 1).setDepth(d + 0.4);
+      else if (ch === "h") this.scene.add.image(left, top, PROP.hedge).setOrigin(0, 0).setDepth(d);
+      else if (ch === "W") this.scene.add.image(left, top, PROP.well).setOrigin(0, 0).setDepth(d);
+      else if (ch === "n") this.scene.add.image(left, top, PROP.bench).setOrigin(0, 0).setDepth(d);
+      else if (ch === "m") this.scene.add.image(left, top, PROP.mailbox).setOrigin(0, 0).setDepth(d);
+      else if (ch === "l") this.scene.add.image(left, top, PROP.lamp).setOrigin(0, 0).setDepth(d + 0.4);
       else if (ch === "Q") {
-        const aura = this.scene.add.image(x * T + 16, y * T + 22, PROP.firefly).setBlendMode(Phaser.BlendModes.ADD).setScale(2.8).setAlpha(0.65).setDepth(depthFor(y, 0.15));
+        const aura = this.scene.add.image(p.x, p.y - 4, PROP.firefly).setBlendMode(Phaser.BlendModes.ADD).setScale(2.8).setAlpha(0.65).setDepth(d);
         this.scene.tweens.add({ targets: aura, alpha: 0.25, scale: 3.4, duration: 1250, yoyo: true, repeat: -1 });
-        const crystal = this.scene.add.image(x * T + 16, y * T + 32, PROP.crystal).setOrigin(0.5, 1).setDepth(depthFor(y, 0.55));
+        const crystal = this.scene.add.image(p.x, p.y + 16, PROP.crystal).setOrigin(0.5, 1).setDepth(d + 0.4);
         this.scene.tweens.add({ targets: crystal, y: crystal.y - 2, alpha: 0.88, duration: 900, yoyo: true, repeat: -1 });
       }
     }
@@ -265,11 +266,11 @@ export class WorldMap {
 
   private spawnNpc(def: NpcDef, defeated: boolean) {
     const pos = defeated && def.moveToWhenDefeated ? def.moveToWhenDefeated : def;
-    const x = pos.x * T + 16, y = pos.y * T + 16;
+    const p = this.project(pos.x, pos.y), x = p.x, y = p.y;
     const critter = def.role === "critter";
-    const shadow = this.scene.add.image(x, y + (critter ? 10 : 13), PROP.shadow).setDepth(depthFor(pos.y, 0.1)).setScale(critter ? 0.8 : 1);
+    const shadow = this.scene.add.image(x, y + (critter ? 10 : 13), PROP.shadow).setDepth(depthFor(pos.x + pos.y, 0.1)).setScale(critter ? 0.8 : 1);
     const sprite = critter
-      ? this.scene.add.sprite(x, y - 4, spriteKey(def.speciesId ?? "pidgey", "front")).setScale(1.5).setDepth(depthFor(pos.y, 0.5))
+      ? this.scene.add.sprite(x, y - 4, spriteKey(def.speciesId ?? "pidgey", "front")).setScale(1.5).setDepth(depthFor(pos.x + pos.y, 0.5))
       : this.scene.add.sprite(x, y, ensureCharacterTexture(this.scene, def.look), 0).setDepth(depthFor(pos.y, 0.5));
     const n: NpcRuntime = { def, x: pos.x, y: pos.y, home: { x: pos.x, y: pos.y }, facing: def.facing, moving: false, sprite, shadow };
     this.faceNpc(n, def.facing);
