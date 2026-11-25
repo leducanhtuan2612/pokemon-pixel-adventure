@@ -9,6 +9,7 @@ export function StartMenu() {
   const hasParty = session.party.length > 0;
   const items: { label: string; action: () => void }[] = [
     { label: "POKéDEX", action: () => open("dex") },
+    { label: "TRẠM TRIỆU HỒI · GACHA", action: () => open("gacha") },
     ...(hasParty ? [{ label: "POKéMON", action: () => open("party") }] : []),
     { label: "TÚI ĐỒ", action: () => open("bag") },
     // QA tools ship only in development builds.
