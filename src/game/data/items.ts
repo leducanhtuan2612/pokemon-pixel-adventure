@@ -16,6 +16,8 @@ export interface ItemData {
 const i = (d: ItemData) => d;
 
 export const ITEMS: Record<string, ItemData> = Object.fromEntries([
+  i({ id: "oran-berry", name: "Oran Berry", category: "medicine", price: 0, heal: 10, desc: "Quả mọng hồi 10 HP cho Pokémon." }),
+  i({ id: "sitrus-berry", name: "Sitrus Berry", category: "medicine", price: 0, heal: 30, desc: "Quả mọng quý hồi 30 HP cho Pokémon." }),
   i({ id: "poke-ball", name: "Poké Ball", category: "ball", price: 200, ball: 1, desc: "Bóng bắt Pokémon hoang dã." }),
   i({ id: "great-ball", name: "Great Ball", category: "ball", price: 600, ball: 1.5, desc: "Tỷ lệ bắt cao hơn Poké Ball." }),
   i({ id: "ultra-ball", name: "Ultra Ball", category: "ball", price: 1200, ball: 2, desc: "Tỷ lệ bắt rất cao." }),
