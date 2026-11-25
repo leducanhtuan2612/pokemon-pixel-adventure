@@ -6,6 +6,7 @@ import { BoxPanel, PartyPanel } from "./PartyPanel";
 import { PokedexPanel } from "./PokedexPanel";
 import { StartMenu } from "./StartMenu";
 import { StarterPicker } from "./StarterPicker";
+import { RedeemPanel, MoveLabPanel } from "./QARewardsPanel";
 import { RedeemPanel } from "./RedeemPanel";
 import { MoveLabPanel } from "./MoveLabPanel";
 
@@ -27,6 +28,8 @@ export function MenuLayer() {
     {panel === "dex" && <PokedexPanel />}
     {panel === "mart" && <MartPanel />}
     {panel === "starter" && <StarterPicker />}
+    {panel === "redeem" && <RedeemPanel />}
+    {panel === "moveLab" && <MoveLabPanel />}
     {panel === "redeem" && <RedeemPanel />}
     {panel === "moveLab" && <MoveLabPanel />}
     {notice && <div className="px-notice">{notice}</div>}
