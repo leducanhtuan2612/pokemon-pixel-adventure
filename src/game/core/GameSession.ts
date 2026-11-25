@@ -1,10 +1,9 @@
 import { START_MAP_ID } from "../data/maps";
 import { getItem } from "../data/items";
-import { normalizeMoveId } from "../data/moves";
-import { getSpecies } from "../data/species";
 import { MOVES, getMove, normalizeMoveId } from "../data/moves";
+import { getSpecies } from "../data/species";
 import {
-  createPokemon, displayName, evolve, healPokemon, itemEvolution, maxHp, type PokemonInstance,
+  createPokemon, displayName, evolve, expForLevel, healPokemon, itemEvolution, maxHp, type PokemonInstance,
 } from "./pokemon";
 
 export interface SaveData {
@@ -143,7 +142,8 @@ export class GameSession {
       this.addItem("ultra-ball", 30);
       this.addItem("potion", 99);
       this.addItem("super-potion", 99);
-      this.addItem("full-restore", 30);
+      this.addItem("hyper-potion", 30);
+      this.addItem("full-heal", 30);
       this.data.money += 50000;
       this.data.starterChosen = true;
       this.setFlag(flag);
@@ -157,7 +157,8 @@ export class GameSession {
       }
       this.data.party.forEach((mon) => { mon.level = Math.max(mon.level, 30); mon.exp = expForLevel(getSpecies(mon.speciesId).growth, mon.level); });
       this.addItem("potion", 50);
-      this.addItem("full-restore", 25);
+      this.addItem("hyper-potion", 25);
+      this.addItem("full-heal", 25);
       this.data.money += 25000;
       this.setFlag("unlock:move-lab");
       this.setFlag(flag);
