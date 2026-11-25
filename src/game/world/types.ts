@@ -66,7 +66,7 @@ export interface BuildingDef {
   /** Pixel-font sign on the roof edge. */
   plaque?: string;
   chimney?: boolean;
-  style?: "house" | "windmill";
+  style?: "house" | "windmill" | "barn" | "greenhouse" | "shop";
 }
 
 export interface SignDef { x: number; y: number; text: string[] }
