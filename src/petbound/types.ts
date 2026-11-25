@@ -52,6 +52,7 @@ export interface WorldSave {
   gold: number;
   crystals: number;
   essence: number;
+  gachaPity: number;
   pets: PetInstance[];
   party: string[];
   stage: number;
@@ -76,6 +77,10 @@ export interface BattlePet {
 export interface BattleState {
   player: BattlePet;
   foe: BattlePet;
+  playerTeam: BattlePet[];
+  foeTeam: BattlePet[];
+  playerIndex: number;
+  foeIndex: number;
   turn: number;
   log: string[];
   over: boolean;
