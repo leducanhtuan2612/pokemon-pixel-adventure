@@ -14,8 +14,6 @@ export function StartMenu() {
     { label: "ĐỔI MÃ QUÀ", action: () => open("redeem") },
     ...(session.data.flags.includes("unlock:move-lab") ? [{ label: "MOVE LAB · TEST CHIÊU", action: () => open("moveLab") }] : []),
     ...(hasParty ? [{ label: "PC BOX", action: () => open("box" as Panel) }] : []),
-    { label: "ĐỔI MÃ QUÀ", action: () => open("redeem") },
-    ...(session.hasFlag("unlock:move-lab") ? [{ label: "MOVE LAB · TEST CHIÊU", action: () => open("moveLab") }] : []),
     { label: "LƯU GAME", action: () => { session.changed(); notify("Đã lưu tiến trình!"); close(); } },
     { label: "ĐÓNG", action: close },
   ];
