@@ -1,4 +1,4 @@
-import { ELEMENT_LABELS, SKILLS, getPet, petMaxHp } from "./catalog";
+import { SKILLS, getPet, petMaxHp } from "./catalog";
 import type { BattlePet, BattleResult, BattleState, Element, PetInstance } from "./types";
 import { createPet, xpGain } from "./catalog";
 import type { WorldSave } from "./types";
@@ -18,7 +18,7 @@ export function createBattle(player: PetInstance, foe: PetInstance, source: Batt
   const p = battlePet({ ...player, hp: Math.max(1, player.hp) });
   const f = battlePet({ ...foe, hp: Math.max(1, foe.hp) });
   return {
-    player: p, foe: f, turn: 1, log: [`${getPet(player.speciesId).name} bước vào đấu trường!`, `Đối thủ ${getPet(foe.speciesId).name} xuất hiện!`],
+    player: p, foe: f, playerTeam: [p], foeTeam: [f], playerIndex: 0, foeIndex: 0, turn: 1, log: [`${getPet(player.speciesId).name} bước vào đấu trường!`, `Đối thủ ${getPet(foe.speciesId).name} xuất hiện!`],
     over: false, won: false, source, stage,
   };
 }
