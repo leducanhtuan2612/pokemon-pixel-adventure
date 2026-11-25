@@ -145,6 +145,7 @@ export class MoveFx {
       if (sig) await sig.call(this, ctx);
       else if (!damaging) await this.statusGeneric(ctx);
       else await this.typeGeneric(ctx);
+      if (damaging) await this.cinematicImpact(target, t, col, Math.max(0.85, Math.min(1.65, move.power / 75)));
     } finally {
       this.master = false;
       await this.dimBg(false);
@@ -540,6 +541,35 @@ export class MoveFx {
     cam.flash(90,col.red,col.green,col.blue,false);cam.shake(190,.009*scale);
     await Promise.all([this.tween({targets:rays,alpha:0,scale:1.12,duration:330}),this.tween({targets:core,scale:1.3*scale,alpha:0,duration:260})]);
     rays.destroy();core.destroy();rings.forEach(r=>r.destroy());
+  }
+
+  /** Universal anime hit climax: camera punch, prismatic shock rings, radial slash rays and a white-hot core. */
+  private async cinematicImpact(target: Img, p: Pt, color: number, intensity: number) {
+    const cam = this.scene.cameras.main, baseZoom = cam.zoom;
+    const col = Phaser.Display.Color.IntegerToColor(color);
+    const halo = this.glow(p.x, p.y, color, 1.25 * intensity, 0.9);
+    const core = this.glow(p.x, p.y, 0xffffff, 0.38 * intensity, 1);
+    const rings = [0, 1, 2, 3].map((i) => this.scene.add.image(p.x, p.y, "vfx-ring")
+      .setTint(i % 2 ? 0xffffff : color).setBlendMode(ADD).setDepth(DEPTH + 4)
+      .setScale(0.08 + i * 0.04).setAlpha(0.95));
+    const rays = this.scene.add.graphics().setDepth(DEPTH + 5).setBlendMode(ADD);
+    for (let i = 0; i < 28; i++) {
+      const a = i * Math.PI * 2 / 28, inner = 14 + (i % 3) * 5, outer = (72 + (i % 5) * 22) * intensity;
+      rays.lineStyle(i % 4 === 0 ? 4 : 1.5, i % 5 === 0 ? 0xffffff : color, 0.9);
+      rays.lineBetween(p.x + Math.cos(a) * inner, p.y + Math.sin(a) * inner,
+        p.x + Math.cos(a) * outer, p.y + Math.sin(a) * outer);
+    }
+    target.setTintFill(0xffffff);
+    this.scene.time.delayedCall(95, () => target.clearTint());
+    cam.flash(105, col.red, col.green, col.blue, false);
+    cam.shake(220, 0.0065 * intensity);
+    await Promise.all([
+      this.tween({ targets: rings, scale: 1.55 * intensity, alpha: 0, angle: 180, duration: 480, ease: "Cubic.easeOut" }),
+      this.tween({ targets: [halo, core], scale: 0.12, alpha: 0, duration: 330, ease: "Quad.easeOut" }),
+      this.tween({ targets: rays, alpha: 0, scale: 1.08, duration: 350 }),
+      this.tween({ targets: cam, zoom: baseZoom * (1.025 + intensity * 0.018), duration: 110, yoyo: true, hold: 50, ease: "Quad.easeOut" }),
+    ]);
+    rings.forEach((r) => r.destroy()); halo.destroy(); core.destroy(); rays.destroy();
   }
 
   /** Sweeping luminous feathers that curve into the impact, not static damage sparks. */
