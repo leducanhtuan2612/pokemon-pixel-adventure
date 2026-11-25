@@ -1,86 +1,37 @@
-# Pokémon Pixel Adventure
+# Petbound: Wildlands
 
-Top-down 2D pixel RPG built with Phaser 3, React, TypeScript and Vite.
+A 2.5D pixel-art fantasy pet RPG built with Phaser 3, React, TypeScript and Vite.
 
-**Build 0.5.0 — World Polish & Audio:** Grass, path, flower and moss textures now vary deterministically by tile, tall grass has subtle two-frame motion, and the forest uses broadleaf, cool-green and pine silhouettes. The game includes an original optional chiptune soundtrack with village/battle themes and synthesized movement, pickup, battle, catch and result sounds. Position is saved on regular movement checkpoints and when the page is hidden or closed.
+The world is rendered as layered 2D pixel art with faux-3D lighting, contact shadows, raised roofs and cinematic camera effects. Pet identities and companion sprites are generated in-game from elemental palettes and deterministic creature seeds; no Pokémon sprite downloads are required.
 
 ## Run locally
+
 ```bash
 npm install
 npm run dev
 ```
+
 Open the local URL Vite prints (normally http://localhost:5173). Stop the server with Ctrl+C.
 
-## Làng Lá Xanh (Greenleaf Village) — map 1
-Ruby/Sapphire-inspired countryside: homes, Birch Lab, spinning windmill, farms, well, orchard, stream with bridge and pond, then Route 101. Villagers and wild Pokémon wander, trainers spot you ("!") and walk over, items (visible + hidden) can be picked up, Birch rewards 5 Pokédex entries, and wild Pokémon have a 1/128 shiny chance.
+## Current visual direction
 
-Move effects (`src/game/battle/fx/MoveFx.ts`) are anime-style additive glows — fireballs, water jets, layered lightning, vine whips, razor leaves, poison needles, tornadoes, psychic rings, claws, jaws, shields and magic circles — with the stage dimmed during each move. Every move learned by map-1 Pokémon has a signature effect; other moves fall back to their type.
+- Original elemental companion sprites with distinct silhouettes, wings, tails, crests, markings and shiny variants.
+- Greenleaf Valley is rethemed as a fantasy pet ranch, with a timber Wild Barn, glass greenhouse, windmill, orchard, fields, stream and forest paths.
+- Procedural barn, greenhouse and shop styles use layered roofs, timber framing, glass panes, doors, awnings and foreground props.
+- Crates, barrels, hay bales and planters add visual scale around buildings, with animated floating fireflies in flower and moss patches.
+- Pet skills use elemental charge motes, rotating rune circles, orbiting particles, perspective rings, beams and impact bursts.
+- The summoning shrine displays generated pet art with rarity treatments and a tenth-pull legendary guarantee.
 
-Overworld art is painted procedurally: FireRed-style autotiled paths/sand/water (animated), 2-tile trees that hide the player, tall grass that covers the player's legs, shingled houses with pixel-font plaques, shadows and a VT323 pixel font with Vietnamese support.
+## Gameplay systems
 
-The map is fully data-driven:
+- Top-down movement, interaction, exploration, NPCs, encounters and turn-based battles.
+- Elemental skill and reaction mechanics, experience, progression and companion collection.
+- A 30-stage challenge tower with persistent progress and rewards. Its current stage resolver is a party-power prototype; it is not yet wired to the full battle scene.
 
-- `src/game/data/maps/greenleaf.ts` — ASCII layout (42×30), buildings, NPCs, signs, exits and the encounter table.
-- `src/game/world/tiles.ts` — tile legend (`T` tree, `:` tall grass, `~` water, `=` path…) with collision/encounter flags.
-- `src/game/world/TilesetFactory.ts` + `pixelArt.ts` — procedurally painted 32×32 square pixel-art tileset with path/water autotiling and character sprite sheets.
-- `src/game/world/WorldMap.ts` — renders the layout with a Phaser Tilemap and answers collision / interaction queries.
-- `src/game/entities/PlayerController.ts` — orthogonal 4-direction movement, immediate taps, buffered input and 4-direction walk animation.
-- `src/game/systems/EncounterSystem.ts` + `services/RandomService.ts` — weighted, rarity-aware wild encounters.
-- `src/game/ui/DialogBox.ts` — bottom text box for NPCs, signs and doors.
+## Compatibility note
 
-To add a map: copy `greenleaf.ts`, edit the layout/data and register it in `src/game/data/maps/index.ts`.
+Some internal TypeScript identifiers, save fields and imported base stats retain their original Pokémon-era names so the existing battle/session systems and local saves continue to work during the visual rebrand. Visible creature names, art and player-facing language are now fantasy-pet themed.
 
-Gameplay loop on this map: talk to NPCs and signs, catch Pokémon in tall grass, beat Finn, Willow and Moss, then the Forest Guardian; the Guardian steps aside and the east exit unlocks Crystal Cave.
+## Release checks
 
-## Battle system v2 — Resonance (Cộng hưởng)
-Battles no longer play like classic monster battlers:
-
-- **Energy (NL) instead of PP** — each side has 0–10 energy, starts at 4 and regains 2 per turn. Moves cost 0 (≤40 power) up to 6; status moves cost 2. Energy belongs to the trainer, so switching keeps it.
-- **THỦ (Guard)** — always acts first: halves incoming damage and banks +3 energy.
-- **Elemental marks & reactions** — every elemental hit leaves a 3-turn *Mark* on the target. Hitting a marked target with a different element triggers a *Reaction* and consumes the mark (e.g. Fire + Grass = THIÊU RỤI ×1.6 + burn, Electric + Water = DẪN ĐIỆN ×1.5 + paralysis, Water + Fire = BỐC HƠI ×1.5 − accuracy). Table in `src/game/battle/elements.ts`; trainer AI plans reactions too.
-- **Rhythm timing** — after picking an attack, a ring shrinks onto the foe; confirm on the white circle for ×1.15 (good) or ×1.3 (perfect).
-- **Surge (BP) & ultimates** — dealing/taking damage and reactions fill the Surge gauge; when full, **TUYỆT KỸ** fires a per-element cinematic ultimate (power ≥120, never misses, pierces immunities). Bosses start at 50%.
-- **KẾT NỐI (Bond) instead of throwing balls** — pick a Bond Crystal, see the real odds, then hit 3 rhythm beats to boost bond strength (up to +75%).
-- **Stalemate breaker** — from turn 40 the arena drains both actives each turn, so no matchup loops forever.
-
-Effects: `src/game/battle/fx/Fx3D.ts` (pseudo-3D toolkit: volumetric cone beams, helixes that wrap behind targets, floor-plane shockwaves, perspective rings, 3D debris with shadows, cinematic camera zoom/pan, bloom, letterbox, extruded title cards) and `fx/Ultimates.ts` (one cinematic per element). The battle uses two cameras: the world camera zooms and pans, while the HUD stays fixed.
-
-Map 1 finale: after beating all four Route 101 trainers, challenge the **Forest Guardian (Hộ Vệ Rừng Thẳm)** in Moonlit Grove for the Forest Badge (main quest step 7).
-
-Dev tools (dev builds only): `?fxdemo=flamethrower` (any move id), `?fxdemo=ult&mon=squirtle` or `?fxdemo=menu` jump straight into a demo battle. QA redeem codes and the Move Lab are stripped from production builds.
-
-Tests: `npm test` runs static release checks, the TypeScript typecheck and a headless 300-battle fuzzer (`scripts/battle-sim.ts`).
-
-## Gameplay (v0.2)
-- **Starter:** talk to Ranger Oak and pick Bulbasaur, Charmander or Squirtle.
-- **All 151 Kanto Pokémon** with Gen 3 base stats, types, level-up learnsets and evolutions generated from [`@pkmn/dex`](https://github.com/pkmn/ps) (MIT) via `npm run gen:data` → `src/game/data/generated/`.
-- **274 Gen 3 moves** with type, power, accuracy, PP, priority, crits, STAB, drain/recoil, flinch, multi-hit, fixed damage, OHKO, confusion, Leech Seed, Reflect/Light Screen, Protect, healing, stat stages and status (burn, poison, paralysis, sleep, freeze). A few niche moves (weather, Transform, Metronome…) have no effect yet. Full Gen 3 type chart (17 types).
-- **FireRed-style battles** (`scenes/BattleScene.ts`): FIGHT / BAG / POKéMON / RUN, animated HP & EXP bars, type-coloured attack effects, Poké Ball shakes, forced switching, multi-Pokémon trainers, smart trainer AI.
-- **Level-up:** learn moves (with "forget a move" prompt) and evolve at level or with Fire/Thunder/Leaf Stone.
-- **Menus** (React): Pokédex (seen/caught), Party (summary, stats, moves, reorder), PC Box, Bag, Poké Mart, Save.
-- **Economy:** prize money from trainers, lose half on blackout.
-
-Battle rules live in `src/game/battle/BattleEngine.ts` (pure TypeScript, no Phaser); data lives in `src/game/data/{species,moves,types,items}.ts`.
-
-### Pokémon sprites
-Front sprites are in `src/assets/sprites/pokemon/front/` named by National Dex number (`001.png` … `151.png`), sliced from the pixel sheet by **@balavicknesh** (fan art — credit the artist if you publish). Optional back sprites go in `.../back/`; without them the front sprite is mirrored. Missing art falls back to a generated placeholder.
-
-## Controls
-- WASD / Arrow keys: move
-- Enter / Space / Z: interact, advance dialog
-- Arrows + Z/Enter in battle menus, X/Esc to go back
-- Tab: party
-- Esc: start menu (Pokédex, Pokémon, Bag, PC Box, Save)
-
-## Notes
-The current map is a fully playable first-area prototype built from procedural pixel shapes (no external art required). It is designed to be extended with authored tilemaps, animations, sound, quest tracking, additional regions and richer battle moves.
-
-
-## Update — Summon & Gauntlet progression
-
-The Start Menu now includes two new progression systems:
-
-- **Trạm Triệu Hồi (Gacha):** 100 crystals per summon, 1/10 legendary rate with a ten-pull pity counter, duplicate conversion into crystals, and automatic party/PC placement. New summon state is stored separately so existing saves remain compatible.
-- **Tháp Thử Thách:** 30 unlockable stages, a boss every five stages, persistent cleared/claimed tracking, party HP attrition, money and summon-crystal rewards, and a Pokémon reward claim per cleared stage. Progress is stored separately from the original adventure save.
-
-Both menus use the existing React overlay and session inventory/party, and are available from the in-game ESC menu. This is a progression prototype layered onto the current battle engine; the gauntlet currently resolves encounters as a party-power challenge rather than launching the full cinematic BattleScene.
+Run `npm run typecheck`, `npm run test` and `npm run build` before release. The changes in this session have not yet been executed through a local build, so please run these checks after pulling.
