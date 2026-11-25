@@ -302,6 +302,29 @@ export class MoveFx {
 
   /* ---------------- signature effects ---------------- */
 
+  /* Cinematic elemental beam: charge glyphs, converging particles, beam flash and impact. */
+  private async cinematicBeam(c: Ctx, color: number, chargeMs = 560, beamMs = 480, impactScale = 1.7) {
+    const cam = this.scene.cameras.main;
+    const glyph = this.scene.add.image(c.u.x,c.u.y,"vfx-circle").setTint(color).setBlendMode(ADD).setDepth(DEPTH-2).setScale(0.08);
+    const targetGlyph = this.scene.add.image(c.t.x,c.t.y,"vfx-circle").setTint(color).setBlendMode(ADD).setDepth(DEPTH-2).setScale(0.06).setAlpha(0);
+    const orb = this.orb(c.u.x,c.u.y,color,0.85);
+    const rings = [0,1,2].map(i=>this.scene.add.image(c.u.x,c.u.y,"vfx-ring").setTint(i===1?0xffffff:color).setBlendMode(ADD).setDepth(DEPTH-1).setScale(0.15+i*0.07));
+    this.scene.tweens.add({targets:glyph,scale:0.78,angle:210,duration:chargeMs,ease:"Cubic.easeOut"});
+    this.scene.tweens.add({targets:targetGlyph,scale:0.48,alpha:0.8,angle:-180,duration:chargeMs,ease:"Cubic.easeOut"});
+    rings.forEach((r,i)=>this.scene.tweens.add({targets:r,scale:0.8+i*0.25,angle:i%2?260:-260,alpha:0.3,duration:chargeMs,delay:i*45}));
+    const particles=Array.from({length:20},(_,i)=>{const a=i*Math.PI*2/20;const p=this.glow(c.u.x+Math.cos(a)*90,c.u.y+Math.sin(a)*90,color,0.12,0.9,"vfx-core");return this.tween({targets:p,x:c.u.x,y:c.u.y,scale:0.42,alpha:0,duration:chargeMs,delay:i*9}).then(()=>p.destroy());});
+    await this.wait(chargeMs);cam.flash(120,210,175,255,false);
+    const beam=this.scene.add.graphics().setDepth(DEPTH+2).setBlendMode(ADD);
+    beam.lineStyle(70,color,0.25).lineBetween(c.u.x,c.u.y,c.t.x,c.t.y);
+    beam.lineStyle(34,color,0.7).lineBetween(c.u.x,c.u.y,c.t.x,c.t.y);
+    beam.lineStyle(12,0xffffff,1).lineBetween(c.u.x,c.u.y,c.t.x,c.t.y);
+    const core=this.glow((c.u.x+c.t.x)/2,(c.u.y+c.t.y)/2,color,0.35,1);
+    await Promise.all([this.tween({targets:beam,alpha:0,duration:beamMs,ease:"Cubic.easeOut"}),this.tween({targets:core,scale:1.45,alpha:0,duration:beamMs})]);beam.destroy();core.destroy();
+    cam.shake(280,0.016);cam.flash(210,255,255,255,false);
+    await Promise.all([this.burst(c.t,color,impactScale,30),this.burst(c.t,0xffffff,impactScale*0.55,20),this.crackle(c.t,color),this.tween({targets:c.target,scaleX:c.target.scaleX*0.82,scaleY:c.target.scaleY*0.82,angle:c.dir*6,duration:90,yoyo:true,repeat:2})]);
+    [glyph,targetGlyph,...orb,...rings].forEach(o=>o.destroy());await Promise.all(particles);
+  }
+
   private signatures: Record<string, (c: Ctx) => Promise<void>> = {
     tackle: async (c) => { void this.afterimages(c.user, c.dir); await this.lunge(c.user, c.dir, 44); this.shake(); await this.burst(c.t, 0xffffff, 1.1); },
     slam: async (c) => { await this.lunge(c.user, c.dir, 50); this.shake(260, 0.012); await this.burst(c.t, 0xfff0c0, 1.5, 14); },
@@ -468,6 +491,15 @@ export class MoveFx {
     },
     helpinghand: async (c) => this.magicCircle(c.user, 0xf8d860, 800),
     mudsport: async (c) => this.powder(c.u, [0x987048, 0xc8a070], 16),
+    shadowball: async (c) => { await this.dimBg(true,0.68); const o=this.orb(c.u.x,c.u.y,0x852bff,1.25); const core=this.glow(c.u.x,c.u.y,0x19002e,0.65,1); await this.travel([...o,core],c.u,c.t,620,95,0xb85cff); await this.burst(c.t,0x9b36ff,1.8,30); await this.crackle(c.t,0xb45cff); o.forEach(x=>x.destroy());core.destroy();await this.dimBg(false); },
+    icebeam: async (c) => this.cinematicBeam(c,0x65dcff,440,430,1.65),
+    hyperbeam: async (c) => this.cinematicBeam(c,0xffa52e,760,620,2.15),
+    psychic: async (c) => { await this.dimBg(true,0.66); await this.magicCircle(c.target,0xc04cff,1000); await this.burst(c.t,0xd14cff,1.7,26); await this.dimBg(false); },
+    thunderbolt: async (c) => { await this.dimBg(true,0.62); for(let i=0;i<5;i++) await this.bolt(c.u,{x:c.t.x+rnd(-34,34),y:c.t.y+rnd(-38,30)},0xffef55); await this.burst(c.t,0xffe64d,1.7,26); await this.crackle(c.t,0xffef55); await this.dimBg(false); },
+    flamethrower: async (c) => { await this.dimBg(true,0.52); const beam=this.glow(c.u.x,c.u.y,0xff6125,0.5,1); await this.tween({targets:beam,x:c.t.x,y:c.t.y,scale:1.45,alpha:0.1,duration:560});beam.destroy();await this.flameRise(c.t,1.8);await this.burst(c.t,0xff5b22,1.7,24);await this.dimBg(false); },
+    solarbeam: async (c) => this.cinematicBeam(c,0x9dff58,720,570,1.95),
+    blizzard: async (c) => { await this.cinematicBeam(c,0x9cecff,600,520,1.8); await this.powder(c.t,[0xffffff,0x92eaff,0xceeaff],48); },
+    surf: async (c) => { await this.dimBg(true,0.5); await this.splash(c.t,0x44bfff); const w=this.scene.add.image(c.u.x,c.u.y,"vfx-crescent").setTint(0x54cfff).setBlendMode(ADD).setDepth(DEPTH).setAngle(90).setScale(0.45,0.8); await this.tween({targets:w,x:c.t.x,y:c.t.y,scaleX:2.3,scaleY:1.5,alpha:0,duration:620});w.destroy();await this.burst(c.t,0x54cfff,1.8,26);await this.dimBg(false); },
   };
 
   /* ---------------- composite helpers ---------------- */
