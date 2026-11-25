@@ -8,15 +8,15 @@ export function StartMenu() {
   useGameStore((s) => s.version);
   const hasParty = session.party.length > 0;
   const items: { label: string; action: () => void }[] = [
-    { label: "POKéDEX", action: () => open("dex") },
+    { label: "SỔ LINH THÚ", action: () => open("dex") },
     { label: "TRẠM TRIỆU HỒI · GACHA", action: () => open("gacha") },
     { label: "THÁP THỬ THÁCH · VƯỢT ẢI", action: () => open("expedition") },
-    ...(hasParty ? [{ label: "POKéMON", action: () => open("party") }] : []),
+    ...(hasParty ? [{ label: "ĐỘI LINH THÚ", action: () => open("party") }] : []),
     { label: "TÚI ĐỒ", action: () => open("bag") },
     // QA tools ship only in development builds.
     ...(import.meta.env.DEV ? [{ label: "ĐỔI MÃ QUÀ (QA)", action: () => open("redeem") }] : []),
-    ...(import.meta.env.DEV && session.data.flags.includes("unlock:move-lab") ? [{ label: "MOVE LAB · TEST CHIÊU", action: () => open("moveLab") }] : []),
-    ...(hasParty ? [{ label: "PC BOX", action: () => open("box" as Panel) }] : []),
+    ...(import.meta.env.DEV && session.data.flags.includes("unlock:move-lab") ? [{ label: "PHÒNG THỬ KỸ NĂNG", action: () => open("moveLab") }] : []),
+    ...(hasParty ? [{ label: "KHO LINH THÚ", action: () => open("box" as Panel) }] : []),
     { label: "LƯU GAME", action: () => { session.changed(); notify("Đã lưu tiến trình!"); close(); } },
     { label: "ĐÓNG", action: close },
   ];
