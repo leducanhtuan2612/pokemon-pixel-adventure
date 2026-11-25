@@ -205,17 +205,17 @@ export class WorldMap {
   private descriptorsAt(x: number, y: number): string[] {
     const ch = this.charAt(x, y), h = Math.abs((x * 73856093) ^ (y * 19349663));
     switch (ch) {
-      case "*": return [0, 1].map((f) => `flower:${f}:${h % 3 === 0 ? 1 : 0}`);
-      case ":": return ["tall"];
-      case "M": return [`moss:${h % 7}`];
-      case "=": case "E": return [`path:${this.mask8(x, y, (c) => c === "=" || c === "E" || c === "D")}:${h % 7}`];
-      case "s": return [`sand:${this.mask8(x, y, (c) => c === "s" || c === "~")}:${h % 5}`];
-      case "~": { const m = this.mask8(x, y, (c) => c === "~"); return [0, 1, 2].map((f) => `water:${m}:${f}:${(x + y * 2) % 3}`); }
+      case "*": return [0, 1].map((f) => `flower:${f}:${h % 3 === 0 ? 1 : 0}:${h % 17}`);
+      case ":": return [0, 1].map((f) => `tall:${f}:${h % 19}`);
+      case "M": return [`moss:${h % 13}`];
+      case "=": case "E": return [`path:${this.mask8(x, y, (c) => c === "=" || c === "E" || c === "D")}:${h % 23}`];
+      case "s": return [`sand:${this.mask8(x, y, (c) => c === "s" || c === "~")}:${h % 17}`];
+      case "~": { const m = this.mask8(x, y, (c) => c === "~"); return [0, 1, 2].map((f) => `water:${m}:${f}:${h % 13}`); }
       case "C": return [`cliff:${this.mask8(x, y, (c) => c === "C") & 15}:${y % 2}`];
       case "f": return ["crops"];
       case "v": return ["cabbage"];
       case "b": return ["bridge"];
-      default: return [`ground:${h % 6 === 0 ? 1 : 0}`];
+      default: return [`ground:${h % 7 === 0 ? 1 : 0}:${h % 31}`];
     }
   }
 
@@ -258,7 +258,12 @@ export class WorldMap {
     for (let y = 0; y < this.height; y++) for (let x = 0; x < this.width; x++) {
       const ch = this.charAt(x, y), p = this.project(x, y), left = p.x - T / 2, top = p.y - T / 2;
       const d = depthFor(y, 0.2);
-      if (ch === "T") this.scene.add.image(p.x, p.y + 16, PROP.tree).setOrigin(0.5, 1).setDepth(d + 0.4);
+      if (ch === "T") {
+        const variant = Math.abs((x * 17 + y * 31) % 9);
+        const texture = variant === 0 ? PROP.pine : variant === 1 || variant === 2 ? PROP.treeAlt : PROP.tree;
+        const tree = this.scene.add.image(p.x, p.y + 16, texture).setOrigin(0.5, 1).setDepth(d + 0.4);
+        if (variant === 3 || variant === 7) tree.setFlipX(true);
+      }
       else if (ch === "R") this.scene.add.image(left, top, PROP.rock).setOrigin(0, 0).setDepth(d);
       else if (ch === "S") this.scene.add.image(left, top, PROP.sign).setOrigin(0, 0).setDepth(d);
       else if (ch === "F") this.scene.add.image(left, top, PROP.fence).setOrigin(0, 0).setDepth(d);

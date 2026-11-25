@@ -2,7 +2,7 @@
 
 Top-down 2D pixel RPG built with Phaser 3, React, TypeScript and Vite.
 
-**Build 0.4.0 — World & Controls Refresh:** Map 1 now uses an orthogonal 32×32 tile grid (the classic FireRed/Emerald-style camera), not the earlier diamond/isometric projection. Arrow keys and WASD move in the direction shown on screen. A direction tap moves immediately, brief direction changes are buffered during a step, Shift runs, mouse/touch destination selection remains available, and a compact touch D-pad appears on smaller screens.
+**Build 0.5.0 — World Polish & Audio:** Grass, path, flower and moss textures now vary deterministically by tile, tall grass has subtle two-frame motion, and the forest uses broadleaf, cool-green and pine silhouettes. The game includes an original optional chiptune soundtrack with village/battle themes and synthesized movement, pickup, battle, catch and result sounds. Position is saved on regular movement checkpoints and when the page is hidden or closed.
 
 ## Run locally
 ```bash

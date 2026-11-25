@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { PROP, ensureCharacterTexture } from "../world/TilesetFactory";
+import { gameAudio } from "../audio/GameAudio";
 import { DIR_VECTORS, type Direction, type Point } from "../world/types";
 import { depthFor, setCharacterFrame, type WorldMap } from "../world/WorldMap";
 
@@ -149,6 +150,7 @@ export class PlayerController {
         this.sprite.setDepth(depthFor(ny, 0.5));
         this.shadow.setDepth(depthFor(ny, 0.1));
         this.world.updateGrassOverlay(this.tile, this.sprite.depth, true);
+        gameAudio.play("step");
         this.onStep?.(this.tile);
       },
     });

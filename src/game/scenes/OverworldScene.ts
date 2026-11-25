@@ -12,6 +12,7 @@ import type { BattleSetup } from "../battle/BattleEngine";
 import type { BattleResult, BattleSceneData } from "./BattleScene";
 import { isUiOpen, useGameStore } from "../../state/gameStore";
 import { questFor } from "../core/objectives";
+import { gameAudio } from "../audio/GameAudio";
 import { sideQuestFor } from "../core/sideQuests";
 import type { QuestTarget } from "../core/objectives";
 
@@ -422,6 +423,7 @@ export class OverworldScene extends Phaser.Scene {
   private pickItem(id: string, itemId: string, qty: number, hidden: boolean) {
     const name = getItem(itemId)?.name ?? itemId;
     session.addItem(itemId, qty);
+    gameAudio.play("pickup");
     session.setFlag(`item:${this.world.def.id}:${id}`);
     this.world.removeItem(id);
     session.changed();
@@ -496,6 +498,8 @@ export class OverworldScene extends Phaser.Scene {
 
   private startBattle(partial: Pick<BattleSetup, "kind" | "foeParty" | "trainerName" | "prize" | "trainerLook">, trainer?: NpcDef) {
     this.inBattle = true;
+    gameAudio.setTrack("battle");
+    gameAudio.play("encounter");
     const setup: BattleSetup = {
       ...partial,
       playerParty: this.save.party,
@@ -537,6 +541,7 @@ export class OverworldScene extends Phaser.Scene {
     this.battleBars?.destroy();
     this.cameras.main.fadeIn(300, 0, 0, 0);
     this.inBattle = false;
+    gameAudio.setTrack("village");
 
     if (r.outcome === "lose") {
       const lost = Math.floor(this.save.money / 2);

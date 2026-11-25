@@ -9,6 +9,7 @@ import { STATUS_COLOR, STATUS_LABEL, displayName, evolve, maxHp, type PokemonIns
 import { CHAR_FRAME, ensureCharacterTexture } from "../world/TilesetFactory";
 import { UI_FONT } from "../ui/DialogBox";
 import { MoveFx } from "../battle/fx/MoveFx";
+import { gameAudio } from "../audio/GameAudio";
 
 export interface BattleResult { outcome: Outcome; prizeMoney: number }
 export interface BattleSceneData { setup: BattleSetup; onEnd: (r: BattleResult) => void }
@@ -101,6 +102,9 @@ export class BattleScene extends Phaser.Scene {
     this.cameras.main.fadeOut(400, 0, 0, 0);
     await this.wait(430);
     const result = { outcome: this.engine.outcome ?? "run", prizeMoney: this.engine.prizeMoney };
+    if (result.outcome === "caught") gameAudio.play("catch");
+    else if (result.outcome === "win") gameAudio.play("victory");
+    else if (result.outcome === "lose") gameAudio.play("defeat");
     this.scene.stop();
     this.data_.onEnd(result);
   }
@@ -136,7 +140,7 @@ export class BattleScene extends Phaser.Scene {
         case "text": await this.say(e.text); break;
         case "sendOut": await this.sendOut(e.side, e.mon); break;
         case "recall": await this.recall(); break;
-        case "move": await this.moveFx(e.side, e.move); break;
+        case "move": gameAudio.play("attack"); await this.moveFx(e.side, e.move); break;
         case "hit": await this.hitAnim(e.side, e.eff); break;
         case "hp": await this.animateHp(e.side === "player" ? this.playerBox : this.foeBox, e.hp, e.maxHp); break;
         case "status": this.setStatus(e.side === "player" ? this.playerBox : this.foeBox, e.status); break;

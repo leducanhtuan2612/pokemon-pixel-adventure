@@ -73,10 +73,15 @@ function paintMoss(ctx: Ctx, ox: number, oy: number, seed: number) {
   px(ctx, ox, oy, 4, 14, "#4e6f5b", 8, 1);
 }
 
-function paintTallGrass(ctx: Ctx, ox: number, oy: number) {
-  ctx.fillStyle = GRASS;
-  ctx.fillRect(ox, oy, T, T);
+function paintTallGrass(ctx: Ctx, ox: number, oy: number, frame = 0, seed = 0) {
+  paintGround(ctx, ox, oy, seed % 7 === 0, seed);
   paintPattern(ctx, pat("tallGrass"), PAL.tallGrass, ox, oy);
+  // Tiny alternating highlights suggest a breeze without breaking tile seams.
+  for (let i = 0; i < 4; i++) {
+    const x = 2 + Math.floor(hash(seed + frame * 19, i) * 12);
+    const y = 1 + Math.floor(hash(seed + frame * 31, i + 8) * 5);
+    px(ctx, ox, oy, x, y, frame === 0 ? "#b8ed8c" : "#4f9e45");
+  }
 }
 
 /** Generic edge renderer for "area" tiles (path, sand) bordering grass. */
@@ -186,7 +191,7 @@ export function painterFor(desc: string): GroundPainter {
   switch (kind) {
     case "ground": return (ctx, x, y) => paintGround(ctx, x, y, n1 === 1, n2);
     case "flower": return (ctx, x, y) => paintFlowers(ctx, x, y, n1, n2 === 1, n3);
-    case "tall": return (ctx, x, y) => paintTallGrass(ctx, x, y);
+    case "tall": return (ctx, x, y) => paintTallGrass(ctx, x, y, n1, n2);
     case "moss": return (ctx, x, y) => paintMoss(ctx, x, y, n1);
     case "path": return (ctx, x, y) => paintPath(ctx, x, y, n1, n2);
     case "sand": return (ctx, x, y) => paintSand(ctx, x, y, n1, n2);
@@ -245,14 +250,38 @@ function canvasTexture(scene: Phaser.Scene, key: string, w: number, h: number, d
 }
 
 export const PROP = {
-  tree: "prop-tree", apple: "prop-apple", rock: "prop-rock", sign: "prop-sign", fence: "prop-fence", hedge: "prop-hedge",
+  tree: "prop-tree", treeAlt: "prop-tree-alt", pine: "prop-pine", apple: "prop-apple", rock: "prop-rock", sign: "prop-sign", fence: "prop-fence", hedge: "prop-hedge",
   well: "prop-well", bench: "prop-bench", mailbox: "prop-mailbox", lamp: "prop-lamp", itemBall: "prop-item",
   grassFront: "prop-grass-front", shadow: "prop-shadow", leaf: "fx-leaf", bubble: "fx-bubble", blades: "prop-blades", crystal: "prop-moon-crystal", firefly: "prop-firefly",
 } as const;
 
+function paintPineTree(ctx: Ctx, ox: number, oy: number) {
+  ctx.fillStyle = "rgba(20,50,25,0.28)";
+  ctx.beginPath(); ctx.ellipse(16, 59, 12, 3, 0, 0, Math.PI * 2); ctx.fill();
+  const bands = [
+    { top: 1, height: 10, spread: 3, green: "#67b85b", shade: "#347d46" },
+    { top: 8, height: 11, spread: 5, green: "#4ca653", shade: "#286b3d" },
+    { top: 16, height: 11, spread: 7, green: "#348b4a", shade: "#205b39" },
+  ];
+  for (const band of bands) for (let row = 0; row < band.height; row++) {
+    const half = Math.max(1, Math.floor((row + 1) / band.height * band.spread));
+    const left = 8 - half, right = 8 + half;
+    px(ctx, ox, oy, left - 1, band.top + row, "#183c28", half * 2 + 3, 1);
+    px(ctx, ox, oy, left, band.top + row, band.green, half * 2 + 1, 1);
+    px(ctx, ox, oy, left, band.top + row, "#a4e07c", Math.max(1, Math.floor(half * 0.55)), 1);
+    if (row > band.height * 0.55) px(ctx, ox, oy, right - 1, band.top + row, band.shade, 2, 1);
+  }
+  px(ctx, ox, oy, 7, 24, "#5c3a1c", 3, 8);
+  px(ctx, ox, oy, 7, 25, "#8a5a30", 1, 6);
+  px(ctx, ox, oy, 6, 31, "#3c281c", 5, 1);
+}
+const ALT_TREE_PALETTE: Palette = { ...PAL.tree, d: "#286348", m: "#3d9256", l: "#78c86b", h: "#c0eb91" };
+
 export function ensurePropTextures(scene: Phaser.Scene) {
   validatePatterns();
   canvasTexture(scene, PROP.tree, T, T * 2, (ctx) => paintPattern(ctx, pat("tree"), PAL.tree, 0, 0));
+  canvasTexture(scene, PROP.treeAlt, T, T * 2, (ctx) => paintPattern(ctx, pat("tree"), ALT_TREE_PALETTE, 0, 0));
+  canvasTexture(scene, PROP.pine, T, T * 2, (ctx) => paintPineTree(ctx, 0, 0));
   canvasTexture(scene, PROP.apple, T, T * 2, (ctx) => { paintPattern(ctx, pat("tree"), PAL.tree, 0, 0); paintPattern(ctx, pat("fruit"), PAL.fruit, 0, 0); });
   canvasTexture(scene, PROP.rock, T, T, (ctx) => paintPattern(ctx, pat("rock"), PAL.rock, 0, 0));
   canvasTexture(scene, PROP.hedge, T, T, (ctx) => paintPattern(ctx, pat("hedge"), PAL.hedge, 0, 0));

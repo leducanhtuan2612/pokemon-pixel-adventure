@@ -6,10 +6,12 @@ import { session } from "../game/core/GameSession";
 import { useGameStore } from "../state/gameStore";
 import { MenuLayer } from "./menus/MenuLayer";
 import { SidePanel } from "./SidePanel";
+import { gameAudio } from "../game/audio/GameAudio";
 
 export default function App() {
   const host = useRef<HTMLDivElement>(null);
   const [started, setStarted] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(gameAudio.isEnabled);
   const setReady = useGameStore((s) => s.setReady);
   const hasSave = session.data.starterChosen;
   type MoveDirection = "up" | "down" | "left" | "right";
@@ -27,6 +29,12 @@ export default function App() {
   };
 
   useEffect(() => {
+    const unlockAudio = () => gameAudio.unlock();
+    window.addEventListener("pointerdown", unlockAudio, { once: true });
+    return () => window.removeEventListener("pointerdown", unlockAudio);
+  }, []);
+
+  useEffect(() => {
     if (!host.current) return;
     const game = new Phaser.Game(createGameConfig(host.current));
     if (import.meta.env.DEV) Object.assign(window, { __game: game, __session: session });
@@ -36,6 +44,8 @@ export default function App() {
 
   const start = (fresh: boolean) => {
     if (fresh && hasSave && !confirm("Bắt đầu game mới sẽ xóa tiến trình hiện tại. Tiếp tục?")) return;
+    gameAudio.unlock();
+    gameAudio.setTrack("village");
     if (fresh) { session.reset(); sessionStorage.setItem("ppa-autostart", "1"); window.location.reload(); return; }
     setStarted(true);
     (window as unknown as { __ppaStarted?: boolean }).__ppaStarted = true;
@@ -43,12 +53,23 @@ export default function App() {
   };
 
   useEffect(() => {
+    const persist = () => session.save();
+    const onVisibility = () => { if (document.visibilityState === "hidden") persist(); };
+    window.addEventListener("pagehide", persist);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", persist);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
     if (sessionStorage.getItem("ppa-autostart")) { sessionStorage.removeItem("ppa-autostart"); start(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return <main className="app-shell">
-    <header className="topbar"><div className="brand-mark">✦</div><div><strong>POKÉMON</strong><span>PIXEL ADVENTURE</span></div><div className="status-pill"><i /> PIXEL WORLD</div></header>
+    <header className="topbar"><div className="brand-mark">✦</div><div><strong>POKÉMON</strong><span>PIXEL ADVENTURE</span></div><button className="audio-toggle" aria-pressed={audioEnabled} onClick={() => { const next = !audioEnabled; if (next) gameAudio.unlock(); gameAudio.setEnabled(next); setAudioEnabled(next); }}>{audioEnabled ? "♫ ÂM THANH BẬT" : "♪ ÂM THANH TẮT"}</button><div className="status-pill"><i /> PIXEL WORLD</div></header>
     <section className="game-layout">
       <div className="game-frame">
         <div className="frame-label"><span>MAP 01</span><span>LÀNG LÁ XANH · ROUTE 101</span></div>
@@ -72,7 +93,7 @@ export default function App() {
             <small>WASD / ← ↑ → ↓ di chuyển · Shift chạy · Click đi tới · Z tương tác · ESC menu</small>
           </div>}
         </div>
-        <div className="frame-bottom"><span>▲ KANTO-LIKE REGION</span><span>BUILD 0.4.0</span></div>
+        <div className="frame-bottom"><span>▲ KANTO-LIKE REGION</span><span>BUILD 0.5.0</span></div>
       </div>
       <SidePanel />
     </section>
