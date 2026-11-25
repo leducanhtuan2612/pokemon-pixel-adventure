@@ -10,6 +10,7 @@ export function StartMenu() {
   const items: { label: string; action: () => void }[] = [
     { label: "POKéDEX", action: () => open("dex") },
     { label: "TRẠM TRIỆU HỒI · GACHA", action: () => open("gacha") },
+    { label: "THÁP THỬ THÁCH · VƯỢT ẢI", action: () => open("expedition") },
     ...(hasParty ? [{ label: "POKéMON", action: () => open("party") }] : []),
     { label: "TÚI ĐỒ", action: () => open("bag") },
     // QA tools ship only in development builds.
