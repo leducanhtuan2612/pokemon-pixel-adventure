@@ -4,7 +4,7 @@ import type { Element } from "./types";
 
 const darken = (hex: string, factor = 0.58) => {
   const n = Number.parseInt(hex.slice(1),16);
-  return "#" + [n>>16,(n>>8)&255,n&255].map(v=>Math.max(0,Math.floor(v*factor)).toString(16).padStart(2,"0")).join("");
+  return "#" + [n>>16,(n>>8)&255,n&255].map((v: number)=>Math.max(0,Math.floor(v*factor)).toString(16).padStart(2,"0")).join("");
 };
 const lighten = (hex: string, amount = 0.38) => {
   const n = Number.parseInt(hex.slice(1),16);
@@ -18,7 +18,7 @@ function oval(c:CanvasRenderingContext2D,x:number,y:number,rx:number,ry:number,f
   c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);c.fillStyle=fill;c.fill();if(stroke){c.strokeStyle=stroke;c.lineWidth=w;c.stroke();}
 }
 function pixel(c:CanvasRenderingContext2D,x:number,y,color:string,w=1,h=1){c.fillStyle=color;c.fillRect(Math.round(x),Math.round(y),w,h);}
-function crest(c:CanvasRenderingContext2D,element:Element,main:string,light:string){
+function crest(c:CanvasRenderingContext2D,element:Element,light:string){
   if(element==="Flame"){
     poly(c,[[12,10],[10,6],[13,7],[16,1],[18,8],[21,5],[20,11]],light,"#9c4937",1);
     pixel(c,15,6,"#fff3ba",2,2);
@@ -48,8 +48,8 @@ function crest(c:CanvasRenderingContext2D,element:Element,main:string,light:stri
 export function drawCompanion(speciesId:string,pose:"idle"|"battle"="idle"){
   const pet=getPet(speciesId), c=document.createElement("canvas");c.width=64;c.height=64;
   const g=c.getContext("2d")!;g.imageSmoothingEnabled=false;g.scale(2,2);
-  const [main,accent,shadow]=pet.palette, light=lighten(main,.36), dark=darken(main,.55), ink="#24323a";
-  oval(g,16,28,10,2.1,"rgba(19,28,31,.27)","",0);
+  const [main,accent,shadow]=pet.palette, light=lighten(main,.36), dark=darken(shadow,.78), ink="#24323a";
+  oval(g,16,28,10,2.1,shadow,"","",0);
   // Tail and back ornaments are drawn before the body for a layered silhouette.
   if(pet.silhouette==="quadruped"||pet.silhouette==="long"){
     poly(g,[[8,21],[3,18],[1,13],[5,15],[11,18]],accent,ink,1);
@@ -104,7 +104,7 @@ export function drawCompanion(speciesId:string,pose:"idle"|"battle"="idle"){
     oval(g,20,14,6.2,5.8,light,ink,1);
     poly(g,[[16,12],[14,6],[19,10]],accent,ink,.8);
   }
-  crest(g,pet.element,main,light);
+  crest(g,pet.element,light);
   // Elemental mark and eye highlights, kept crisp at native pixel scale.
   if(pet.element==="Nature"){pixel(g,12,20,"#d8f2a6",2,2);pixel(g,16,23,"#a9d977",2,2);}
   if(pet.element==="Flame"){pixel(g,12,21,"#ffd18a",3,1);pixel(g,19,24,"#ffca76",2,1);}
