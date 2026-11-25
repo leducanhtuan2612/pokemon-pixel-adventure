@@ -102,7 +102,11 @@ export class OverworldScene extends Phaser.Scene {
       this.awaitingStarter = false;
       this.time.delayedCall(150, () => (this.speaker = "Giáo sư Birch", this.openDialog([
         "Giáo sư Birch: Lựa chọn tuyệt vời! Hãy chăm sóc nó thật tốt nhé.",
-        "Ta tặng thêm 5 Poké Ball. Bấm ESC để mở menu xem đội hình và túi đồ.",
+        "HƯỚNG DẪN 1/4 · WASD hoặc phím mũi tên để di chuyển. Giữ SHIFT để chạy.",
+        "HƯỚNG DẪN 2/4 · Đi qua cây cầu phía đông, bước vào cỏ cao để gặp Pokémon hoang.",
+        "HƯỚNG DẪN 3/4 · Trong trận: CHIÊU để tấn công, TÚI để ném Poké Ball hoặc dùng Potion.",
+        "HƯỚNG DẪN 4/4 · Nói chuyện với Youngster Joey để bắt đầu trận Trainer đầu tiên.",
+        "Ta tặng thêm 5 Poké Ball. ESC mở menu; TAB xem nhanh đội hình.",
       ], () => { session.addItem("poke-ball", 5); session.changed(); })));
     }
   }
