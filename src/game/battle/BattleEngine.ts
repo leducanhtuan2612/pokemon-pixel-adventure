@@ -7,6 +7,7 @@ import {
   calcStats, displayName, expForLevel, gainExp, levelEvolution, maxHp, slot, type PokemonInstance,
 } from "../core/pokemon";
 import { random, type RandomService } from "../services/RandomService";
+import type { CharacterLook } from "../world/types";
 import { chooseMove } from "./ai";
 import {
   accuracyMultiplier, calcDamage, catchShakes, effectiveSpeed, expYield, freshStages, type Stages,
@@ -48,6 +49,8 @@ export interface BattleSetup {
   playerParty: PokemonInstance[];
   foeParty: PokemonInstance[];
   trainerName?: string;
+  /** Overworld look of the trainer, drawn during the battle intro. */
+  trainerLook?: CharacterLook;
   /** Base prize; money = prize × level of the trainer's last Pokémon. */
   prize?: number;
   bag: { count(id: string): number; take(id: string): boolean };
@@ -76,7 +79,7 @@ export function viewOf(mon: PokemonInstance): MonView {
   const lo = expForLevel(growth, mon.level), hi = expForLevel(growth, mon.level + 1);
   return {
     uid: mon.uid, speciesId: mon.speciesId, name: displayName(mon), level: mon.level, hp: mon.hp, maxHp: maxHp(mon),
-    status: mon.status, expFrac: hi > lo ? Math.min(1, (mon.exp - lo) / (hi - lo)) : 1,
+    status: mon.status, expFrac: hi > lo ? Math.max(0, Math.min(1, (mon.exp - lo) / (hi - lo))) : 1,
   };
 }
 

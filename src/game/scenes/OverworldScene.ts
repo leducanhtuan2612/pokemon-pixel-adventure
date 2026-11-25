@@ -196,7 +196,7 @@ export class OverworldScene extends Phaser.Scene {
 
     const team = (def.team ?? []).map((t) => createPokemon(t.speciesId, t.level));
     if (!team.length) return;
-    this.openDialog(def.dialog, () => this.startBattle({ kind: "trainer", foeParty: team, trainerName: def.name, prize: def.prize }, def));
+    this.openDialog(def.dialog, () => this.startBattle({ kind: "trainer", foeParty: team, trainerName: def.name, prize: def.prize, trainerLook: def.look }, def));
   }
 
   private speaker: string | undefined;
@@ -211,7 +211,7 @@ export class OverworldScene extends Phaser.Scene {
   /* Battles                                                           */
   /* ---------------------------------------------------------------- */
 
-  private startBattle(partial: Pick<BattleSetup, "kind" | "foeParty" | "trainerName" | "prize">, trainer?: NpcDef) {
+  private startBattle(partial: Pick<BattleSetup, "kind" | "foeParty" | "trainerName" | "prize" | "trainerLook">, trainer?: NpcDef) {
     this.inBattle = true;
     const setup: BattleSetup = {
       ...partial,
@@ -222,19 +222,36 @@ export class OverworldScene extends Phaser.Scene {
       onEvolved: (id) => session.markCaught(id),
     };
     const data: BattleSceneData = { setup, onEnd: (r) => this.endBattle(r, trainer) };
-    // Classic encounter transition: two flashes, then fade to black.
+    // Classic encounter transition: two flashes, then black bars sweep in from alternating sides.
     const cam = this.cameras.main;
-    cam.flash(120, 255, 255, 255);
-    this.time.delayedCall(170, () => cam.flash(120, 255, 255, 255));
-    this.time.delayedCall(340, () => cam.fadeOut(260, 0, 0, 0));
-    this.time.delayedCall(620, () => {
-      this.scene.launch("BattleScene", data);
-      this.scene.pause();
-    });
+    cam.flash(110, 255, 255, 255);
+    this.time.delayedCall(160, () => cam.flash(110, 255, 255, 255));
+    const bars = this.add.graphics().setScrollFactor(0).setDepth(5000);
+    const t = { v: 0 }, n = 10, bh = this.scale.height / n, w = this.scale.width;
+    this.time.delayedCall(320, () => this.tweens.add({
+      targets: t, v: 1, duration: 520, ease: "Quad.easeIn",
+      onUpdate: () => {
+        bars.clear().fillStyle(0x000000, 1);
+        for (let i = 0; i < n; i++) {
+          const len = w * Math.min(1, t.v * 1.25 - (i % 3) * 0.08);
+          if (len <= 0) continue;
+          if (i % 2) bars.fillRect(w - len, i * bh, len, bh + 1); else bars.fillRect(0, i * bh, len, bh + 1);
+        }
+      },
+      onComplete: () => {
+        this.scene.launch("BattleScene", data);
+        this.scene.pause();
+        this.time.delayedCall(0, () => bars.destroy());
+        this.battleBars = bars;
+      },
+    }));
   }
+
+  private battleBars?: Phaser.GameObjects.Graphics;
 
   private endBattle(r: BattleResult, trainer?: NpcDef) {
     this.scene.resume();
+    this.battleBars?.destroy();
     this.cameras.main.fadeIn(300, 0, 0, 0);
     this.inBattle = false;
 
