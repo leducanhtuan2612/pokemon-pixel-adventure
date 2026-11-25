@@ -26,10 +26,10 @@ export function MoveLabPanel() {
     notify(result.message);
   };
   return <div className="px-fullscreen px-movelab-screen">
-    <Window title="BIRCH LAB · MOVE TEST" className="px-movelab" hint="ESC: quay lại menu">
+    <Window title="WILD BARN · SKILL FORGE" className="px-movelab" hint="ESC: quay lại menu">
       <div className="px-lab-head"><span>MOVE LAB</span><b>{Object.keys(MOVES).length} MOVES · GEN III</b></div>
-      {!party.length ? <div className="px-empty">Đội chưa có Pokémon. Đổi mã GREENLEAF-TEST trước.</div> : <>
-        <label className="px-lab-label">POKÉMON ĐANG TEST</label>
+      {!party.length ? <div className="px-empty">Đội chưa có linh thú. Đổi mã WILDLANDS-TEST trước.</div> : <>
+        <label className="px-lab-label">LINH THÚ ĐANG TEST</label>
         <select className="px-lab-select" value={monIndex} onChange={(e) => setMonIndex(Number(e.target.value))}>
           {party.map((p,i) => <option value={i} key={p.uid}>{displayName(p)} · Lv{p.level}</option>)}
         </select>
