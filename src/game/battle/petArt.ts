@@ -111,13 +111,13 @@ export function createPetSpriteCanvas(speciesId: string, view: SpriteView = "fro
   const light = tint(main, 0.42);
   const pale = tint(main, 0.68);
   const canvas = document.createElement("canvas");
-  canvas.width = 32;
-  canvas.height = 32;
+  canvas.width = 64;
+  canvas.height = 64;
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
   ctx.imageSmoothingEnabled = false;
   ctx.save();
-  ctx.scale(2, 2);
+  ctx.scale(4, 4);
   ctx.lineJoin = "miter";
   ctx.lineCap = "square";
 
@@ -192,6 +192,38 @@ export function createPetSpriteCanvas(speciesId: string, view: SpriteView = "fro
     polygon(ctx, [[13, 10], [15, 8], [15, 12]], "#ffffff", "#73b6d0", 0.45);
   } else if (primary === "Ghost" || primary === "Psychic") {
     ellipse(ctx, 13.5, 12, 1, 1, "#ffffff", accent, 0.4);
+  }
+
+
+  // Species-specific silhouette ornaments: layered horns, segmented armor,
+  // wing ribs and elemental tail accents. All shapes are original pixel art.
+  const crest = seed % 5;
+  if (primary === "Dragon" || primary === "Dark" || primary === "Steel") {
+    polygon(ctx, [[4,6],[3,2],[6,4],[7,7]], accent, INK, 0.65);
+    polygon(ctx, [[10,6],[12,2],[12,5],[11,7]], light, INK, 0.65);
+    if (crest % 2 === 0) polygon(ctx, [[7,5],[8,1],[9,5]], pale, INK, 0.55);
+  } else if (primary === "Flying" || primary === "Bug") {
+    polygon(ctx, [[4,9],[0,4],[1,9],[4,12]], light, INK, 0.65);
+    polygon(ctx, [[12,9],[16,4],[15,9],[12,12]], accent, INK, 0.65);
+    for (let k=0;k<3;k++){ctx.strokeStyle=dark;ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(2+k,6+k*.6);ctx.lineTo(4,10);ctx.moveTo(14-k,6+k*.6);ctx.lineTo(12,10);ctx.stroke();}
+  } else if (primary === "Rock" || primary === "Ground" || primary === "Steel") {
+    polygon(ctx, [[4,8],[3,4],[5,5],[6,8]], dark, INK, .6);
+    polygon(ctx, [[8,8],[9,3],[11,6],[10,9]], accent, INK, .6);
+    polygon(ctx, [[5,10],[7,8],[9,10],[8,12],[6,12]], light, INK, .45);
+  } else if (primary === "Grass" || primary === "Poison") {
+    polygon(ctx, [[4,7],[2,2],[6,5],[7,8]], accent, INK, .55);
+    polygon(ctx, [[9,7],[13,2],[12,7],[10,9]], light, INK, .55);
+    ctx.strokeStyle=dark;ctx.lineWidth=.5;ctx.beginPath();ctx.moveTo(5,5);ctx.lineTo(6,7);ctx.moveTo(11,5);ctx.lineTo(10,7);ctx.stroke();
+  }
+  // Pixel contour highlights create a hand-shaded, collectible sprite finish.
+  ctx.fillStyle = pale;
+  ctx.fillRect(5,9,.7,.7);ctx.fillRect(7,8,.7,.7);ctx.fillRect(9,9,.7,.7);
+  if (species.rarity === "legendary") {
+    polygon(ctx, [[1,13],[2,11],[3,13]], "#fff0a6", "#a87935", .35);
+    polygon(ctx, [[13,13],[14,11],[15,13]], "#fff0a6", "#a87935", .35);
+    ctx.fillStyle="#fff6c8";ctx.fillRect(7,3,1,1);ctx.fillRect(9,4,1,1);
+  } else if (species.rarity === "rare") {
+    ctx.fillStyle="#e7f4ff";ctx.fillRect(2,12,1,1);ctx.fillRect(14,10,1,1);
   }
 
   if (view === "front") {
