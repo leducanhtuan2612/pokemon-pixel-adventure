@@ -33,6 +33,10 @@ export class OverworldScene extends Phaser.Scene {
   private autoQuestLabel = "";
   private autoQuestArrival = "";
   private autoNavigating = false;
+  /** Click-to-walk route overlay. Rendered in world space and cleared on arrival. */
+  private routeGraphics?: Phaser.GameObjects.Graphics;
+  private routeDestination?: Point;
+
 
   constructor() { super("OverworldScene"); }
 
@@ -52,8 +56,14 @@ export class OverworldScene extends Phaser.Scene {
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, this.world.pixelWidth, this.world.pixelHeight);
-    cam.startFollow(this.player.sprite, true, 1, 1);
+    cam.setZoom(1.18);
+    cam.startFollow(this.player.sprite, false, 0.075, 0.075);
     cam.setRoundPixels(true);
+    cam.setDeadzone(140, 88);
+
+    this.routeGraphics = this.add.graphics().setDepth(900).setScrollFactor(1);
+    this.input.on("pointerdown", this.onWorldPointer);
+    this.events.once("shutdown", () => { this.input.off("pointerdown", this.onWorldPointer); this.routeGraphics?.destroy(); });
 
     const kb = this.input.keyboard!;
     for (const k of ["ENTER", "SPACE", "Z"]) kb.on(`keydown-${k}`, () => this.onConfirm());
@@ -122,6 +132,54 @@ export class OverworldScene extends Phaser.Scene {
     this.navigateToTarget(quest.target);
   };
 
+  /** Mouse/touch destination selection. Convert screen pointer through camera, then inverse-isometric pick. */
+  private onWorldPointer = (pointer: Phaser.Input.Pointer) => {
+    if (!this.canAct() || pointer.button !== 0) return;
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const picked = this.world.unproject(worldPoint.x, worldPoint.y);
+    if (picked.x < 0 || picked.y < 0 || picked.x >= this.world.width || picked.y >= this.world.height) return;
+    let goal: Point | undefined;
+    for (let radius = 0; radius <= 2 && !goal; radius++) {
+      const candidates: Point[] = [];
+      for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+        const p = { x: picked.x + dx, y: picked.y + dy };
+        if (p.x >= 0 && p.y >= 0 && p.x < this.world.width && p.y < this.world.height && !this.world.isBlocked(p.x, p.y)) candidates.push(p);
+      }
+      candidates.sort((a,b) => Math.abs(a.x-picked.x)+Math.abs(a.y-picked.y)-Math.abs(b.x-picked.x)-Math.abs(b.y-picked.y));
+      goal = candidates.find(p => this.findQuestPath([p]) !== null);
+    }
+    if (!goal) { useGameStore.getState().notify("Ô này chưa thể đi tới."); return; }
+    const path = this.findQuestPath([goal]);
+    if (!path) return;
+    this.autoNpcId = undefined;
+    this.autoQuestLabel = "Điểm đã chọn";
+    this.autoQuestArrival = "Bạn đã đến vị trí đã chọn.";
+    this.autoPath = path; this.autoPathIndex = 0; this.autoNavigating = path.length > 0;
+    this.routeDestination = goal;
+    this.drawRoute();
+    if (!this.autoNavigating) this.finishQuestNavigation();
+    else useGameStore.getState().notify("Đang đi đến điểm đã chọn · nhấn ESC để hủy.");
+  };
+
+  private drawRoute() {
+    const g = this.routeGraphics;
+    if (!g) return;
+    g.clear();
+    if (!this.routeDestination || !this.autoNavigating) return;
+    const points = [this.player.tile, ...this.autoPath.slice(this.autoPathIndex)];
+    g.lineStyle(5, 0x173c31, 0.78);
+    points.forEach((p,i) => { const q=this.world.project(p.x,p.y); if(i===0)g.beginPath().moveTo(q.x,q.y);else g.lineTo(q.x,q.y); });
+    g.strokePath();
+    g.lineStyle(2, 0xd8ff88, 0.98);
+    points.forEach((p,i) => { const q=this.world.project(p.x,p.y); if(i===0)g.beginPath().moveTo(q.x,q.y);else g.lineTo(q.x,q.y); });
+    g.strokePath();
+    const end=this.world.project(this.routeDestination.x,this.routeDestination.y);
+    g.fillStyle(0xeaff9a,0.24);g.fillCircle(end.x,end.y,20);
+    g.lineStyle(3,0xf3ffb0,1);g.strokeCircle(end.x,end.y,13);
+    g.fillStyle(0xffffff,1);g.fillCircle(end.x,end.y,4);
+  }
+
   private navigateToTarget(targetDef: QuestTarget) {
     this.autoNpcId = targetDef.npcId;
     this.autoQuestLabel = targetDef.label;
@@ -175,7 +233,7 @@ export class OverworldScene extends Phaser.Scene {
     const next = this.autoPath[this.autoPathIndex];
     const dx = next.x - this.player.tile.x, dy = next.y - this.player.tile.y;
     const dir: Direction = dx === 1 ? "right" : dx === -1 ? "left" : dy === 1 ? "down" : "up";
-    if (this.player.autoStep(dir)) this.autoPathIndex++;
+    if (this.player.autoStep(dir)) { this.autoPathIndex++; this.drawRoute(); }
     else {
       const quest = questFor(this.save);
       const npc = this.autoNpcId ? this.world.npcs.find((n) => n.def.id === this.autoNpcId) : undefined;
@@ -191,6 +249,7 @@ export class OverworldScene extends Phaser.Scene {
 
   private finishQuestNavigation() {
     this.autoNavigating = false; this.autoPath = []; this.autoPathIndex = 0;
+    this.routeDestination = undefined; this.routeGraphics?.clear();
     if (this.autoNpcId) {
       const npc = this.world.npcs.find((n) => n.def.id === this.autoNpcId);
       if (npc && Math.abs(npc.x - this.player.tile.x) + Math.abs(npc.y - this.player.tile.y) === 1) {
@@ -205,6 +264,7 @@ export class OverworldScene extends Phaser.Scene {
 
   private cancelQuestNavigation(message: string) {
     this.autoNavigating = false; this.autoPath = []; this.autoPathIndex = 0; this.autoNpcId = undefined;
+    this.routeDestination = undefined; this.routeGraphics?.clear();
     useGameStore.getState().notify(message);
   }
 
