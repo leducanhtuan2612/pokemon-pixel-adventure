@@ -72,6 +72,7 @@ export class WorldMap {
     picked.forEach((id) => this.picked.add(id));
     this.buildGround();
     this.placeProps();
+    this.placeFireflies();
     for (const b of this.def.buildings) {
       const tex = ensureBuildingTexture(this.scene, b);
       const windmill = b.style === "windmill";
@@ -222,6 +223,20 @@ export class WorldMap {
     }
   }
 
+  /** Ambient fireflies and motes make flower patches and the hidden grove feel alive. */
+  private placeFireflies() {
+    let count = 0;
+    for (let y = 2; y < this.height - 1; y++) for (let x = 2; x < this.width - 1; x++) {
+      const ch = this.charAt(x, y);
+      const seed = Math.abs((x * 31 + y * 17) % 13);
+      if (!(ch === "*" || ch === "M" || ch === ":") || seed > 2 || count >= 28) continue;
+      const mote = this.scene.add.image(x * T + 7 + seed * 5, y * T + 7 + (seed % 2) * 9, PROP.firefly)
+        .setBlendMode(Phaser.BlendModes.ADD).setScale(0.45 + seed * 0.12).setAlpha(0.25).setDepth(2 + (seed % 2) * 0.1);
+      this.scene.tweens.add({ targets: mote, y: mote.y - 4 - seed, alpha: 0.85, scale: mote.scale * 1.45, duration: 850 + seed * 170, yoyo: true, repeat: -1, delay: seed * 120 });
+      count++;
+    }
+  }
+
   private placeProps() {
     for (let y = 0; y < this.height; y++) for (let x = 0; x < this.width; x++) {
       const ch = this.charAt(x, y);
@@ -235,6 +250,12 @@ export class WorldMap {
       else if (ch === "n") this.scene.add.image(x * T, y * T, PROP.bench).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
       else if (ch === "m") this.scene.add.image(x * T, y * T, PROP.mailbox).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
       else if (ch === "l") this.scene.add.image(x * T, y * T, PROP.lamp).setOrigin(0, 0).setDepth(depthFor(y, 0.6));
+      else if (ch === "Q") {
+        const aura = this.scene.add.image(x * T + 16, y * T + 22, PROP.firefly).setBlendMode(Phaser.BlendModes.ADD).setScale(2.8).setAlpha(0.65).setDepth(depthFor(y, 0.15));
+        this.scene.tweens.add({ targets: aura, alpha: 0.25, scale: 3.4, duration: 1250, yoyo: true, repeat: -1 });
+        const crystal = this.scene.add.image(x * T + 16, y * T + 32, PROP.crystal).setOrigin(0.5, 1).setDepth(depthFor(y, 0.55));
+        this.scene.tweens.add({ targets: crystal, y: crystal.y - 2, alpha: 0.88, duration: 900, yoyo: true, repeat: -1 });
+      }
     }
   }
 
