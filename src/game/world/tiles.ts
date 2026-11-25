@@ -10,6 +10,8 @@ export interface TileRule {
 
 export const TILE_RULES: Record<string, TileRule> = {
   ".": { name: "ground", solid: false },
+  "M": { name: "moon-moss", solid: false },
+  "Q": { name: "moon-crystal", solid: true },
   "*": { name: "flowers", solid: false },
   ":": { name: "tall-grass", solid: false, encounter: true },
   "=": { name: "path", solid: false },
