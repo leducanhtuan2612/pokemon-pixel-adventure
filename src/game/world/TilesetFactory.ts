@@ -253,6 +253,7 @@ export const PROP = {
   tree: "prop-tree", treeAlt: "prop-tree-alt", pine: "prop-pine", apple: "prop-apple", rock: "prop-rock", sign: "prop-sign", fence: "prop-fence", hedge: "prop-hedge",
   well: "prop-well", bench: "prop-bench", mailbox: "prop-mailbox", lamp: "prop-lamp", itemBall: "prop-item",
   grassFront: "prop-grass-front", shadow: "prop-shadow", leaf: "fx-leaf", bubble: "fx-bubble", blades: "prop-blades", crystal: "prop-moon-crystal", firefly: "prop-firefly",
+  crate: "prop-crate", barrel: "prop-barrel", hay: "prop-hay", planter: "prop-planter", lantern: "prop-lantern",
 } as const;
 
 function paintPineTree(ctx: Ctx, ox: number, oy: number) {
@@ -316,6 +317,52 @@ export function ensurePropTextures(scene: Phaser.Scene) {
     ctx.fillStyle = "#3a2418"; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = "#c89058"; ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
   });
+  canvasTexture(scene, PROP.crate, T, T, (ctx) => {
+    ctx.fillStyle = "rgba(24,36,24,.28)"; ctx.fillRect(4, 26, 25, 4);
+    ctx.fillStyle = "#4a2c1b"; ctx.fillRect(3, 8, 26, 19);
+    ctx.fillStyle = "#b9783c"; ctx.fillRect(5, 9, 22, 16);
+    ctx.fillStyle = "#d99b55"; ctx.fillRect(6, 10, 20, 2);
+    ctx.fillStyle = "#754525"; ctx.fillRect(6, 15, 20, 2); ctx.fillRect(6, 22, 20, 2);
+    ctx.fillStyle = "#e5b56d"; ctx.fillRect(5, 10, 2, 15); ctx.fillRect(25, 10, 2, 15);
+    ctx.fillStyle = "#59351f"; ctx.fillRect(14, 10, 3, 15);
+    ctx.fillStyle = "#f1c77e"; ctx.fillRect(7, 11, 1, 3); ctx.fillRect(24, 11, 1, 3);
+  });
+  canvasTexture(scene, PROP.barrel, T, T, (ctx) => {
+    ctx.fillStyle = "rgba(24,36,24,.3)"; ctx.beginPath(); ctx.ellipse(16, 27, 11, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#422b20"; ctx.fillRect(6, 7, 20, 19);
+    ctx.fillStyle = "#9b6439"; ctx.fillRect(8, 8, 16, 17);
+    ctx.fillStyle = "#bd8651"; ctx.fillRect(9, 9, 4, 14);
+    ctx.fillStyle = "#613e2a"; ctx.fillRect(6, 8, 20, 3); ctx.fillRect(6, 22, 20, 3);
+    ctx.fillStyle = "#d0ad76"; ctx.fillRect(7, 8, 18, 1); ctx.fillRect(7, 23, 18, 1);
+    ctx.fillStyle = "#503322"; ctx.fillRect(15, 11, 2, 11);
+  });
+  canvasTexture(scene, PROP.hay, T, T, (ctx) => {
+    ctx.fillStyle = "rgba(24,36,24,.28)"; ctx.beginPath(); ctx.ellipse(16, 27, 12, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#79502b"; ctx.fillRect(4, 10, 24, 16);
+    ctx.fillStyle = "#e2b84e"; ctx.fillRect(5, 8, 22, 16);
+    ctx.fillStyle = "#f4d879"; ctx.fillRect(7, 9, 18, 3);
+    ctx.fillStyle = "#b98537"; ctx.fillRect(5, 21, 22, 3);
+    ctx.fillStyle = "#ffe89a"; ctx.fillRect(8, 12, 2, 8); ctx.fillRect(14, 12, 2, 8); ctx.fillRect(20, 12, 2, 8);
+    ctx.fillStyle = "#9d6b30"; ctx.fillRect(4, 17, 1, 5); ctx.fillRect(27, 16, 1, 6);
+  });
+  canvasTexture(scene, PROP.planter, T, T, (ctx) => {
+    ctx.fillStyle = "rgba(24,36,24,.26)"; ctx.beginPath(); ctx.ellipse(16, 28, 11, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#653c31"; ctx.fillRect(7, 18, 18, 9);
+    ctx.fillStyle = "#c46e4e"; ctx.fillRect(8, 18, 16, 8);
+    ctx.fillStyle = "#e69a68"; ctx.fillRect(7, 17, 18, 3); ctx.fillRect(9, 21, 2, 4);
+    ctx.fillStyle = "#543d26"; ctx.fillRect(9, 15, 14, 3);
+    ctx.fillStyle = "#39834b"; ctx.fillRect(10, 10, 3, 7); ctx.fillRect(15, 6, 3, 11); ctx.fillRect(19, 10, 3, 7);
+    ctx.fillStyle = "#a9e47a"; ctx.fillRect(10, 10, 2, 2); ctx.fillRect(16, 6, 2, 3); ctx.fillRect(20, 10, 2, 2);
+    ctx.fillStyle = "#f6d37a"; ctx.fillRect(13, 9, 2, 2); ctx.fillStyle = "#f5a6c5"; ctx.fillRect(18, 8, 2, 2);
+  });
+  canvasTexture(scene, PROP.lantern, T, T, (ctx) => {
+    ctx.fillStyle = "rgba(255,202,96,.14)"; ctx.beginPath(); ctx.arc(16, 14, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#3c3028"; ctx.fillRect(10, 4, 12, 19); ctx.fillRect(13, 1, 6, 3);
+    ctx.fillStyle = "#b47a3e"; ctx.fillRect(11, 6, 10, 14);
+    ctx.fillStyle = "#ffcf70"; ctx.fillRect(13, 8, 6, 10);
+    ctx.fillStyle = "#fff2b8"; ctx.fillRect(14, 9, 3, 7);
+    ctx.fillStyle = "#6b462b"; ctx.fillRect(8, 20, 16, 3); ctx.fillRect(14, 23, 4, 7);
+  });
   canvasTexture(scene, PROP.sign, T, T, (ctx) => paintPattern(ctx, pat("sign"), PAL.sign, 0, 0));
   canvasTexture(scene, PROP.fence, T, T, (ctx) => paintPattern(ctx, pat("fence"), PAL.fence, 0, 0));
   canvasTexture(scene, PROP.grassFront, T, T, (ctx) => paintPattern(ctx, pat("tallGrassFront"), { ...PAL.tallGrass, ".": "" }, 0, 0));
@@ -342,9 +389,160 @@ const css = (n: number) => "#" + n.toString(16).padStart(6, "0");
 export const BUILDING_OVERHANG = 10; // roof pixels above the footprint
 export const BUILDING_SHADOW = 6;
 
+function fillPoly(ctx: Ctx, pts: [number, number][], fill: string, stroke = "#302a2d", width = 2) {
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = width; ctx.stroke(); }
+}
+
+/** Tall red timber barn with a raised ridge, two roof planes and sliding doors. */
+function ensureBarnTexture(scene: Phaser.Scene, b: BuildingDef) {
+  const key = `bld-${b.id}`, W = b.w * T, base = BUILDING_OVERHANG + b.h * T;
+  const H = b.h * T + BUILDING_OVERHANG + BUILDING_SHADOW, mid = W / 2;
+  return canvasTexture(scene, key, W, H, (ctx) => {
+    ctx.fillStyle = "rgba(15,28,20,.34)"; ctx.beginPath(); ctx.ellipse(mid, base + 5, W * .47, 6, 0, 0, Math.PI * 2); ctx.fill();
+    // Barn wall: deep timber edge, warm boards, side shadow and stone foundation.
+    ctx.fillStyle = "#382b2d"; ctx.fillRect(5, 62, W - 10, base - 62);
+    const wall = ctx.createLinearGradient(0, 65, 0, base);
+    wall.addColorStop(0, "#d98b56"); wall.addColorStop(.65, "#b96542"); wall.addColorStop(1, "#834333");
+    ctx.fillStyle = wall; ctx.fillRect(8, 64, W - 16, base - 68);
+    for (let x = 12; x < W - 10; x += 12) {
+      ctx.fillStyle = x % 24 ? "rgba(89,45,34,.28)" : "rgba(255,208,142,.2)";
+      ctx.fillRect(x, 70, 2, base - 82);
+    }
+    ctx.fillStyle = "#50343a"; ctx.fillRect(8, base - 8, W - 16, 6);
+    ctx.fillStyle = "#cf9868"; ctx.fillRect(10, base - 8, W - 20, 2);
+    // Gable and cross-braced beams.
+    fillPoly(ctx, [[mid, 43], [W - 12, 70], [12, 70]], "#e3a06b", "#53353a", 3);
+    ctx.strokeStyle = "#754342"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(mid, 48); ctx.lineTo(mid, 70); ctx.moveTo(mid - 32, 53); ctx.lineTo(mid + 32, 68); ctx.moveTo(mid + 32, 53); ctx.lineTo(mid - 32, 68); ctx.stroke();
+    // Two roof planes with darker right side and staggered shingle seams.
+    fillPoly(ctx, [[mid, 2], [W - 3, 35], [W - 3, 67], [mid, 48]], shade(b.roof, -22), "#392b37", 3);
+    fillPoly(ctx, [[mid, 2], [3, 35], [3, 67], [mid, 48]], css(b.roof), "#392b37", 3);
+    for (let row = 0; row < 6; row++) {
+      const y = 12 + row * 8;
+      ctx.strokeStyle = row % 2 ? "rgba(255,190,150,.38)" : "rgba(75,35,42,.36)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(mid - row * 5, y); ctx.lineTo(7, 34 + row * 5);
+      ctx.moveTo(mid + row * 5, y); ctx.lineTo(W - 7, 34 + row * 5);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "#f3b17b"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(mid, 4); ctx.lineTo(mid, 47); ctx.stroke();
+    ctx.strokeStyle = "#452d36"; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(4, 67); ctx.lineTo(W - 4, 67); ctx.stroke();
+    // Small loft vent with a warm light behind it.
+    ctx.fillStyle = "#4d3338"; ctx.fillRect(mid - 11, 54, 22, 13);
+    ctx.fillStyle = "#ffd38a"; ctx.fillRect(mid - 7, 57, 14, 7);
+    ctx.fillStyle = "#75423a"; ctx.fillRect(mid - 1, 57, 2, 7); ctx.fillRect(mid - 7, 60, 14, 2);
+    // Sliding double barn door, iron strap hinges and diagonal timber braces.
+    const doorY = base - 49, doorW = 68, doorX = mid - doorW / 2;
+    ctx.fillStyle = "#352a31"; ctx.fillRect(doorX - 4, doorY - 4, doorW + 8, 51);
+    ctx.fillStyle = "#743d36"; ctx.fillRect(doorX, doorY, doorW, 44);
+    ctx.fillStyle = "#b56845"; ctx.fillRect(doorX + 3, doorY + 3, doorW - 6, 38);
+    ctx.fillStyle = "#693b36";
+    for (let x = doorX + 8; x < doorX + doorW; x += 11) ctx.fillRect(x, doorY + 4, 2, 36);
+    ctx.strokeStyle = "#e7ae74"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(doorX + 5, doorY + 6); ctx.lineTo(mid - 3, doorY + 37); ctx.moveTo(mid + 3, doorY + 37); ctx.lineTo(doorX + doorW - 5, doorY + 6); ctx.stroke();
+    ctx.fillStyle = "#44313a"; ctx.fillRect(mid - 2, doorY + 3, 4, 37);
+    ctx.fillStyle = "#f1d38c"; ctx.fillRect(mid - 5, doorY + 22, 3, 4); ctx.fillRect(mid + 2, doorY + 22, 3, 4);
+    // Wall lanterns, a hanging wooden plaque and stone doorstep.
+    for (const x of [18, W - 18]) {
+      ctx.fillStyle = "#4b3433"; ctx.fillRect(x - 5, 78, 10, 17);
+      ctx.fillStyle = "#ffcf79"; ctx.fillRect(x - 3, 81, 6, 10);
+      ctx.fillStyle = "rgba(255,195,100,.28)"; ctx.fillRect(x - 8, 76, 16, 22);
+    }
+    ctx.fillStyle = "#493037"; ctx.fillRect(mid - 32, 73, 64, 12);
+    ctx.fillStyle = "#f0d3a0"; ctx.fillRect(mid - 29, 75, 58, 8);
+    if (b.plaque) drawPixelText(ctx, b.plaque, mid - pixelTextWidth(b.plaque, 1) / 2, 76, "#70432f", 1);
+    ctx.fillStyle = "#4a3a37"; ctx.fillRect(mid - 42, base - 3, 84, 5);
+    ctx.fillStyle = "#d1b58d"; ctx.fillRect(mid - 38, base - 3, 76, 2);
+  });
+}
+
+/** Glass-and-timber greenhouse with layered roof panes, vents and flower beds. */
+function ensureGreenhouseTexture(scene: Phaser.Scene, b: BuildingDef) {
+  const key = `bld-${b.id}`, W = b.w * T, base = BUILDING_OVERHANG + b.h * T;
+  const H = b.h * T + BUILDING_OVERHANG + BUILDING_SHADOW, mid = W / 2;
+  return canvasTexture(scene, key, W, H, (ctx) => {
+    ctx.fillStyle = "rgba(15,28,20,.30)"; ctx.beginPath(); ctx.ellipse(mid, base + 5, W * .46, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#493d3a"; ctx.fillRect(5, 35, W - 10, base - 35);
+    ctx.fillStyle = "#b8dfc4"; ctx.fillRect(8, 38, W - 16, base - 46);
+    fillPoly(ctx, [[mid, 0], [W - 6, 35], [6, 35]], "#344b48", "#31413c", 3);
+    fillPoly(ctx, [[mid, 4], [W - 12, 32], [12, 32]], "#84c5b3", "#eff5d1", 2);
+    // Glass roof catches light in diagonal panes.
+    for (let i = 0; i < 6; i++) {
+      const x = 14 + i * Math.max(18, (W - 28) / 6);
+      ctx.strokeStyle = i % 2 ? "rgba(237,255,235,.8)" : "rgba(44,104,96,.7)";
+      ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(mid, 5); ctx.lineTo(x, 32); ctx.stroke();
+    }
+    for (let x = 14; x < W - 12; x += 22) {
+      ctx.strokeStyle = "#517b69"; ctx.lineWidth = 3; ctx.strokeRect(x, 42, 16, base - 54);
+      ctx.fillStyle = x % 2 ? "rgba(225,255,239,.54)" : "rgba(104,184,169,.38)";
+      ctx.fillRect(x + 2, 44, 12, base - 58);
+      ctx.fillStyle = "rgba(255,255,255,.7)"; ctx.fillRect(x + 3, 46, 2, 17);
+    }
+    ctx.fillStyle = "#41644f"; ctx.fillRect(7, 38, W - 14, 5);
+    ctx.fillStyle = "#f5df9c"; ctx.fillRect(mid - 18, base - 41, 36, 37);
+    ctx.fillStyle = "#55775f"; ctx.fillRect(mid - 15, base - 38, 30, 34);
+    ctx.fillStyle = "#a8d8c4"; ctx.fillRect(mid - 12, base - 35, 24, 29);
+    ctx.fillStyle = "#e4f6db"; ctx.fillRect(mid - 2, base - 35, 3, 29); ctx.fillRect(mid - 12, base - 21, 24, 2);
+    ctx.fillStyle = "#3d5a4c"; ctx.fillRect(9, base - 7, W - 18, 4);
+    ctx.fillStyle = "#d9e6b5"; ctx.fillRect(12, base - 6, W - 24, 2);
+    if (b.plaque) {
+      ctx.fillStyle = "#4c5c48"; ctx.fillRect(mid - 34, 34, 68, 12);
+      ctx.fillStyle = "#f4ebc6"; ctx.fillRect(mid - 31, 36, 62, 8);
+      drawPixelText(ctx, b.plaque, mid - pixelTextWidth(b.plaque, 1) / 2, 37, "#426a51", 1);
+    }
+  });
+}
+
+/** Market workshop with timber framing, a striped canvas awning and display windows. */
+function ensureShopTexture(scene: Phaser.Scene, b: BuildingDef) {
+  const key = `bld-${b.id}`, W = b.w * T, base = BUILDING_OVERHANG + b.h * T;
+  const H = b.h * T + BUILDING_OVERHANG + BUILDING_SHADOW;
+  return canvasTexture(scene, key, W, H, (ctx) => {
+    ctx.fillStyle = "rgba(15,28,20,.3)"; ctx.fillRect(8, base - 1, W - 12, 8);
+    ctx.fillStyle = "#4c3334"; ctx.fillRect(4, 30, W - 8, base - 30);
+    ctx.fillStyle = css(b.wall); ctx.fillRect(8, 34, W - 16, base - 42);
+    ctx.fillStyle = "#4b3038"; ctx.fillRect(0, 3, W, 32);
+    ctx.fillStyle = css(b.roof); ctx.fillRect(3, 6, W - 6, 25);
+    for (let y = 12; y < 30; y += 8) { ctx.fillStyle = shade(b.roof, -20); ctx.fillRect(3, y, W - 6, 2); }
+    // Alternating awning panels with a scalloped cloth edge.
+    const awnY = 55, panel = Math.max(12, Math.floor((W - 24) / 8));
+    for (let i = 0; i < 8; i++) {
+      const x = 12 + i * panel;
+      ctx.fillStyle = i % 2 ? "#f3e5c2" : "#c75e4c";
+      ctx.fillRect(x, awnY, panel, 16);
+      ctx.fillRect(x, awnY + 14, panel - 2, 4);
+    }
+    ctx.fillStyle = "#553d3a"; ctx.fillRect(10, awnY - 3, W - 20, 4);
+    const windowY = awnY + 25;
+    for (const x of [18, W - 58]) {
+      ctx.fillStyle = "#4b3539"; ctx.fillRect(x - 3, windowY - 3, 42, 31);
+      ctx.fillStyle = "#82c4d0"; ctx.fillRect(x, windowY, 36, 25);
+      ctx.fillStyle = "#e5f7df"; ctx.fillRect(x + 2, windowY + 2, 14, 10);
+      ctx.fillStyle = "#4d6c72"; ctx.fillRect(x + 17, windowY, 3, 25);
+      ctx.fillRect(x, windowY + 12, 36, 2);
+    }
+    ctx.fillStyle = "#52383b"; ctx.fillRect(W / 2 - 15, windowY + 1, 30, base - windowY - 9);
+    ctx.fillStyle = "#936040"; ctx.fillRect(W / 2 - 12, windowY + 4, 24, base - windowY - 16);
+    ctx.fillStyle = "#e9c27d"; ctx.fillRect(W / 2 + 7, base - 26, 2, 3);
+    ctx.fillStyle = "#4d3738"; ctx.fillRect(8, base - 6, W - 16, 4);
+    if (b.plaque) {
+      ctx.fillStyle = "#4c3034"; ctx.fillRect(W / 2 - 38, 34, 76, 16);
+      ctx.fillStyle = "#f7e9c5"; ctx.fillRect(W / 2 - 35, 36, 70, 12);
+      drawPixelText(ctx, b.plaque, W / 2 - pixelTextWidth(b.plaque, 1) / 2, 39, "#754c39", 1);
+    }
+  });
+}
+
 /** FireRed-style house: shingled roof with ridge and eaves, plank walls, framed windows, door, optional plaque/chimney. */
 export function ensureBuildingTexture(scene: Phaser.Scene, b: BuildingDef) {
   if (b.style === "windmill") return ensureWindmillTexture(scene, b);
+  if (b.style === "barn") return ensureBarnTexture(scene, b);
+  if (b.style === "greenhouse") return ensureGreenhouseTexture(scene, b);
+  if (b.style === "shop") return ensureShopTexture(scene, b);
   const key = `bld-${b.id}`;
   const W = b.w * T, H = b.h * T + BUILDING_OVERHANG + BUILDING_SHADOW;
   return canvasTexture(scene, key, W, H, (ctx) => {
