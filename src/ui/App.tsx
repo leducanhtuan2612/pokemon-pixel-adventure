@@ -70,7 +70,7 @@ export default function App() {
   }, []);
 
   return <main className="app-shell">
-    <header className="topbar"><div className="brand-mark">✦</div><div><strong>POKÉMON</strong><span>PIXEL ADVENTURE</span></div><button className="audio-toggle" aria-pressed={audioEnabled} onClick={() => { const next = !audioEnabled; if (next) gameAudio.unlock(); gameAudio.setEnabled(next); setAudioEnabled(next); }}>{audioEnabled ? "♫ ÂM THANH BẬT" : "♪ ÂM THANH TẮT"}</button><div className="status-pill"><i /> PIXEL WORLD</div></header>
+    <header className="topbar"><div className="brand-mark">✦</div><div><strong>PETBOUND</strong><span>WILDLANDS RPG</span></div><button className="audio-toggle" aria-pressed={audioEnabled} onClick={() => { const next = !audioEnabled; if (next) gameAudio.unlock(); gameAudio.setEnabled(next); setAudioEnabled(next); }}>{audioEnabled ? "♫ ÂM THANH BẬT" : "♪ ÂM THANH TẮT"}</button><div className="status-pill"><i /> PIXEL WORLD</div></header>
     <section className="game-layout">
       <div className="game-frame">
         <div className="frame-label"><span>MAP 01</span><span>LÀNG LÁ XANH · ROUTE 101</span></div>
@@ -86,7 +86,7 @@ export default function App() {
           {!started && <div className="start-overlay">
             <div className="eyebrow">A NEW JOURNEY</div>
             <h1>YOUR STORY<br /><em>STARTS HERE.</em></h1>
-            <p>Khám phá thế giới pixel, gặp gỡ Pokémon<br />và chinh phục những thử thách đầu tiên.</p>
+            <p>Khám phá thế giới pixel, gặp gỡ linh thú<br />và chinh phục những thử thách đầu tiên.</p>
             <div className="start-buttons">
               {hasSave && <button onClick={() => start(false)}>TIẾP TỤC <span>→</span></button>}
               <button className={hasSave ? "secondary" : ""} onClick={() => (hasSave ? start(true) : start(false))}>{hasSave ? "GAME MỚI" : "BẮT ĐẦU PHIÊU LƯU"} <span>→</span></button>
@@ -94,10 +94,10 @@ export default function App() {
             <small>WASD / ← ↑ → ↓ di chuyển · Shift chạy · Click đi tới · Z tương tác · ESC menu</small>
           </div>}
         </div>
-        <div className="frame-bottom"><span>▲ KANTO-LIKE REGION</span><span>BUILD 0.5.0</span></div>
+        <div className="frame-bottom"><span>✦ WILDLANDS VALLEY</span><span>BUILD 0.5.0</span></div>
       </div>
       <SidePanel />
     </section>
-    <footer><span>© 2026 PIXEL ADVENTURE STUDIO · Pokémon sprites: @balavicknesh</span><span>MADE FOR EXPLORERS <b>✦</b></span></footer>
+    <footer><span>© 2026 PIXEL ADVENTURE STUDIO · ORIGINAL FANTASY PET ART</span><span>MADE FOR EXPLORERS <b>✦</b></span></footer>
   </main>;
 }
