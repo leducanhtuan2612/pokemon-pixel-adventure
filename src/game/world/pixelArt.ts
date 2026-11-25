@@ -100,19 +100,27 @@ type Pose = "stand" | "walkA" | "walkB";
 const POSES: Pose[] = ["stand", "walkA", "walkB"];
 
 /** Frame order in the character sheet: down×3, up×3, left×3 (right = flipped left). */
-export const CHARACTER_FRAMES: { dir: "down" | "up" | "left"; pose: Pose; pattern: Pattern }[] = [];
+export const CHARACTER_FRAMES: { dir: "down" | "up" | "left" | "right"; pose: Pose; pattern: Pattern }[] = [];
 for (const dir of ["down", "up", "left"] as const) {
   for (const pose of POSES) {
     const head = dir === "down" ? HEAD_DOWN : dir === "up" ? HEAD_UP : HEAD_LEFT;
     const body = dir === "down" ? BODY_DOWN : dir === "up" ? BODY_UP : BODY_LEFT;
     const feet = dir === "left" ? FEET_SIDE[pose] : FEET_FRONT[pose];
-    // Walking frames bob the upper body down one art pixel (the pants row
-    // is absorbed by the stride) so steps read clearly at small size.
+    // Each direction has a consistent idle + two-step cycle.
     const pattern = pose === "stand"
       ? [...head, ...body, ...feet]
       : ["................", ...head, ...body.slice(0, 4), ...feet];
     CHARACTER_FRAMES.push({ dir, pose, pattern });
   }
+}
+// A true right-facing sheet avoids the old mirrored-left pose at runtime.
+// Mirror every pixel row once during texture generation; no flip state leaks
+// into the shadow, UI portrait, or the next animation frame.
+for (const frame of CHARACTER_FRAMES.filter((f) => f.dir === "left")) {
+  CHARACTER_FRAMES.push({
+    dir: "right", pose: frame.pose,
+    pattern: frame.pattern.map((row) => row.split("").reverse().join("")),
+  });
 }
 
 const base = { k: "#202030", w: "#f8f8f8", s: "#f8d0a0" };

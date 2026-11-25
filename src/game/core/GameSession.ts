@@ -195,6 +195,24 @@ export class GameSession {
     return { ok: true, message: `Đã gắn ${move.name} vào ô chiêu ${slotIndex + 1} của ${displayName(mon)}.` };
   }
 
+  /** One-time lifetime exploration rewards; flags make this safe across reloads. */
+  claimExplorationMilestone(steps: number): { title: string; reward: string } | null {
+    const milestones = [
+      { at: 30, id: "field-30", title: "Nhà thám hiểm tập sự", reward: "potion", qty: 2, money: 250 },
+      { at: 80, id: "field-80", title: "Dấu chân Route 101", reward: "poke-ball", qty: 3, money: 400 },
+      { at: 160, id: "field-160", title: "Người khảo sát Greenleaf", reward: "great-ball", qty: 2, money: 650 },
+      { at: 300, id: "field-300", title: "Bậc thầy khám phá", reward: "super-potion", qty: 3, money: 1000 },
+    ];
+    const milestone = milestones.find((m) => steps >= m.at && !this.hasFlag(`milestone:${m.id}`));
+    if (!milestone) return null;
+    this.addItem(milestone.reward, milestone.qty);
+    this.data.money += milestone.money;
+    this.setFlag(`milestone:${milestone.id}`);
+    this.changed();
+    const itemName = getItem(milestone.reward)?.name ?? milestone.reward;
+    return { title: milestone.title, reward: `${itemName} ×${milestone.qty} + ₽${milestone.money.toLocaleString("vi-VN")}` };
+  }
+
   hasFlag(f: string) { return this.data.flags.includes(f); }
   setFlag(f: string) { if (!this.hasFlag(f)) this.data.flags.push(f); }
 

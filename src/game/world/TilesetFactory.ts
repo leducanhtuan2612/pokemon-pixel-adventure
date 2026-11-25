@@ -454,9 +454,9 @@ function ensureWindmillTexture(scene: Phaser.Scene, b: BuildingDef) {
 /* ------------------------------------------------------------------ */
 
 export const characterTextureKey = (look: CharacterLook) => `char-${look}`;
-export const CHAR_FRAME = { down: 0, up: 3, left: 6 } as const;
+export const CHAR_FRAME = { down: 0, up: 3, left: 6, right: 9 } as const;
 
-/** Character sheet: 9 frames (down/up/left × stand/walkA/walkB), each 32×32. */
+/** Character sheet: 12 frames (4 directions × stand/walkA/walkB), each 32×32. */
 export function ensureCharacterTexture(scene: Phaser.Scene, look: CharacterLook) {
   const key = characterTextureKey(look);
   if (scene.textures.exists(key)) return key;

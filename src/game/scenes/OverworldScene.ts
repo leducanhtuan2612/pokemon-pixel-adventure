@@ -329,6 +329,8 @@ export class OverworldScene extends Phaser.Scene {
   private onStep(t: Point) {
     this.save.steps++;
     this.save.position = { ...t };
+    const milestone = session.claimExplorationMilestone(this.save.steps);
+    if (milestone) useGameStore.getState().notify(`✦ ${milestone.title}! Nhận ${milestone.reward}`);
     if (!session.hasFlag("area:greenleaf:moon-grove") && t.y >= 34 && t.x >= 5 && t.x <= 21) {
       session.setFlag("area:greenleaf:moon-grove");
       session.changed();
@@ -367,7 +369,12 @@ export class OverworldScene extends Phaser.Scene {
       if (session.hasUsablePokemon()) {
         const foe = this.encounters.rollStep(this.world.def.encounters);
         if (foe) { this.lastTile = { ...t }; this.startBattle({ kind: "wild", foeParty: [foe] }); return; }
+        if ([4, 8].includes(this.encounters.grassSteps)) {
+          useGameStore.getState().notify("Cỏ cao xào xạc… có Pokémon đang ẩn nấp gần đây!");
+        }
       }
+    } else {
+      this.encounters.leaveGrass();
     }
     this.lastTile = { ...t };
     if (this.save.steps % 8 === 0) session.save();

@@ -9,12 +9,24 @@ const RARITY_CAP: Record<Rarity, number> = { common: Infinity, uncommon: Infinit
 
 export class EncounterSystem {
   constructor(private rng: RandomService = random) {}
+  private consecutiveGrassSteps = 0;
 
-  /** Called once per completed step on an encounter tile. */
+  /** Called once per completed step on an encounter tile.
+   * Gentle encounter pity avoids long empty grass walks without flooding battles. */
   rollStep(table: EncounterTable): PokemonInstance | null {
-    if (!this.rng.chance(table.rate)) return null;
+    this.consecutiveGrassSteps++;
+    const pity = Math.min(0.16, (this.consecutiveGrassSteps - 1) * 0.018);
+    const chance = Math.min(0.28, table.rate + pity);
+    const triggered = this.consecutiveGrassSteps >= 12 || this.rng.chance(chance);
+    if (!triggered) return null;
+    this.consecutiveGrassSteps = 0;
     return this.pick(table);
   }
+
+  get grassSteps() { return this.consecutiveGrassSteps; }
+
+  /** Reset the pity counter when the player leaves encounter terrain. */
+  leaveGrass() { this.consecutiveGrassSteps = 0; }
 
   pick(table: EncounterTable): PokemonInstance | null {
     const entries = table.entries.map((e) => ({ ...e, weight: Math.min(e.weight, RARITY_CAP[e.rarity]) }));

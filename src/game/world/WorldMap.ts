@@ -301,9 +301,8 @@ const dy = (v: Point) => v.y;
 
 /** Shared by player & NPCs: pick the right frame from a character sheet. */
 export function setCharacterFrame(sprite: Phaser.GameObjects.Sprite, dir: Direction, pose: 0 | 1 | 2) {
-  const base = dir === "right" ? CHAR_FRAME.left : CHAR_FRAME[dir];
-  sprite.setFrame(base + pose);
-  sprite.setFlipX(dir === "right");
+  sprite.setFrame(CHAR_FRAME[dir] + pose);
+  sprite.setFlipX(false);
 }
 
 export { key as tileKey };
