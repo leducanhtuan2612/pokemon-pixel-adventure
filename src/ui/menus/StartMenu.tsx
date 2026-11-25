@@ -11,6 +11,8 @@ export function StartMenu() {
     { label: "POKéDEX", action: () => open("dex") },
     ...(hasParty ? [{ label: "POKéMON", action: () => open("party") }] : []),
     { label: "TÚI ĐỒ", action: () => open("bag") },
+    { label: "ĐỔI MÃ QUÀ", action: () => open("redeem") },
+    ...(session.data.flags.includes("unlock:move-lab") ? [{ label: "MOVE LAB · TEST CHIÊU", action: () => open("moveLab") }] : []),
     ...(hasParty ? [{ label: "PC BOX", action: () => open("box" as Panel) }] : []),
     { label: "ĐỔI MÃ QUÀ", action: () => open("redeem") },
     ...(session.hasFlag("unlock:move-lab") ? [{ label: "MOVE LAB · TEST CHIÊU", action: () => open("moveLab") }] : []),
