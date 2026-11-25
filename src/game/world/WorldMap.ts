@@ -1,15 +1,19 @@
 import Phaser from "phaser";
 import { ruleFor } from "./tiles";
 import {
-  BUILDING_OVERHANG, CHAR_FRAME, E, N, NE, NW, PROP, S, SE, SW, TILE_SIZE, W,
+  BUILDING_OVERHANG, CHAR_FRAME, E, N, NE, NW, PROP, S, SE, SW, TILE_SIZE, W, WINDMILL_OVERHANG,
   buildAtlas, ensureBuildingTexture, ensureCharacterTexture, ensurePropTextures,
 } from "./TilesetFactory";
-import type { BuildingDef, Direction, ExitDef, MapDefinition, NpcDef, Point, SignDef } from "./types";
+import { DIR_VECTORS, type BuildingDef, type Direction, type ExitDef, type MapDefinition, type MapItemDef, type NpcDef, type Point, type SignDef } from "./types";
+import { spriteKey } from "../battle/sprites";
 
 const key = (x: number, y: number) => `${x},${y}`;
 const T = TILE_SIZE;
 
-export interface NpcRuntime { def: NpcDef; x: number; y: number; sprite: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Image }
+export interface NpcRuntime {
+  def: NpcDef; x: number; y: number; home: Point; facing: Direction; moving: boolean;
+  sprite: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Image;
+}
 
 interface AnimatedCell { x: number; y: number; frames: number[] }
 
@@ -30,6 +34,8 @@ export class WorldMap {
   private animated: AnimatedCell[] = [];
   private animTick = 0;
   private grassFront?: Phaser.GameObjects.Image;
+  private itemSprites = new Map<string, Phaser.GameObjects.Image>();
+  private picked = new Set<string>();
 
   constructor(private scene: Phaser.Scene, readonly def: MapDefinition) {
     this.height = def.layout.length;
@@ -50,16 +56,35 @@ export class WorldMap {
   signAt(x: number, y: number): SignDef | undefined { return this.def.signs.find((s) => s.x === x && s.y === y); }
   doorAt(x: number, y: number): BuildingDef | undefined { return this.def.buildings.find((b) => b.door.x === x && b.door.y === y); }
   exitAt(x: number, y: number): ExitDef | undefined { return this.def.exits.find((e) => e.x === x && e.y === y); }
-  isBlocked(x: number, y: number) { return ruleFor(this.charAt(x, y)).solid || !!this.npcAt(x, y); }
+  /** Item (visible or hidden) at a tile that hasn't been collected yet. */
+  itemAt(x: number, y: number): MapItemDef | undefined {
+    return this.def.items?.find((i) => i.x === x && i.y === y && !this.picked.has(i.id));
+  }
+  removeItem(id: string) { this.picked.add(id); this.itemSprites.get(id)?.destroy(); this.itemSprites.delete(id); }
+  isBlocked(x: number, y: number) {
+    const item = this.itemAt(x, y);
+    return ruleFor(this.charAt(x, y)).solid || !!this.npcAt(x, y) || (!!item && !item.hidden);
+  }
   isEncounterTile(x: number, y: number) { return !!ruleFor(this.charAt(x, y)).encounter; }
 
-  build(defeated: readonly string[]) {
+  build(defeated: readonly string[], picked: readonly string[] = []) {
     ensurePropTextures(this.scene);
+    picked.forEach((id) => this.picked.add(id));
     this.buildGround();
     this.placeProps();
     for (const b of this.def.buildings) {
       const tex = ensureBuildingTexture(this.scene, b);
-      this.scene.add.image(b.x * T, b.y * T - BUILDING_OVERHANG, tex).setOrigin(0, 0).setDepth(depthFor(b.y + b.h - 1, 0.7));
+      const windmill = b.style === "windmill";
+      const depth = depthFor(b.y + b.h - 1, 0.7);
+      this.scene.add.image(b.x * T, b.y * T - (windmill ? WINDMILL_OVERHANG : BUILDING_OVERHANG), tex).setOrigin(0, 0).setDepth(depth);
+      if (windmill) {
+        const blades = this.scene.add.image(b.x * T + (b.w * T) / 2, b.y * T - WINDMILL_OVERHANG + 60, PROP.blades).setDepth(depth + 0.01);
+        this.scene.tweens.add({ targets: blades, angle: 360, duration: 9000, repeat: -1 });
+      }
+    }
+    for (const it of this.def.items ?? []) {
+      if (it.hidden || this.picked.has(it.id)) continue;
+      this.itemSprites.set(it.id, this.scene.add.image(it.x * T, it.y * T, PROP.itemBall).setOrigin(0, 0).setDepth(depthFor(it.y, 0.2)));
     }
     for (const def of this.def.npcs) this.spawnNpc(def, defeated.includes(def.id));
     this.grassFront = this.scene.add.image(0, 0, PROP.grassFront).setOrigin(0, 0).setVisible(false);
@@ -89,7 +114,64 @@ export class WorldMap {
     n.sprite.setDepth(depthFor(to.y, 0.5));
   }
 
-  faceNpc(n: NpcRuntime, dir: Direction) { setCharacterFrame(n.sprite, dir, 0); }
+  faceNpc(n: NpcRuntime, dir: Direction) {
+    n.facing = dir;
+    if (n.def.role === "critter") n.sprite.setFlipX(dir === "right");
+    else setCharacterFrame(n.sprite, dir, 0);
+  }
+
+  /** Walks an NPC one tile with a walk cycle. Resolves false if the tile is blocked. */
+  stepNpc(n: NpcRuntime, dir: Direction, player: Point, ms = 300): Promise<boolean> {
+    const v = DIR_VECTORS[dir], nx = n.x + v.x, ny = n.y + v.y;
+    this.faceNpc(n, dir);
+    if (n.moving || this.isBlocked(nx, ny) || (nx === player.x && ny === player.y)) return Promise.resolve(false);
+    n.moving = true;
+    n.x = nx; n.y = ny;
+    const critter = n.def.role === "critter";
+    if (!critter) setCharacterFrame(n.sprite, dir, Math.random() < 0.5 ? 1 : 2);
+    if (dy(v) > 0 || v.x !== 0) n.sprite.setDepth(depthFor(ny, 0.5));
+    return new Promise((res) => {
+      this.scene.tweens.add({
+        targets: n.sprite, x: nx * T + 16, y: ny * T + 16 - (critter ? 4 : 0), duration: ms,
+        onUpdate: (tw) => {
+          n.shadow.setPosition(n.sprite.x, n.sprite.y + (critter ? 10 : 13));
+          if (critter) n.sprite.y = Phaser.Math.Linear(n.sprite.y, n.sprite.y, 1) - Math.sin(tw.progress * Math.PI) * 0.6;
+          else if (tw.progress > 0.55) setCharacterFrame(n.sprite, dir, 0);
+        },
+        onComplete: () => {
+          n.moving = false;
+          n.sprite.setDepth(depthFor(ny, 0.5));
+          n.shadow.setDepth(depthFor(ny, 0.1));
+          res(true);
+        },
+      });
+    });
+  }
+
+  /** Can an NPC wander onto this tile (stays near home, avoids grass/doors/exits)? */
+  canWander(n: NpcRuntime, dir: Direction) {
+    const v = DIR_VECTORS[dir], nx = n.x + v.x, ny = n.y + v.y, r = n.def.wander ?? 0;
+    const ch = this.charAt(nx, ny);
+    return Math.abs(nx - n.home.x) <= r && Math.abs(ny - n.home.y) <= r && ch !== ":" && ch !== "E" && ch !== "b";
+  }
+
+  /** Tiles a trainer can see: straight ahead until something solid. */
+  sightLine(n: NpcRuntime): Point[] {
+    const v = DIR_VECTORS[n.facing], out: Point[] = [];
+    for (let i = 1; i <= (n.def.sight ?? 0); i++) {
+      const x = n.x + v.x * i, y = n.y + v.y * i;
+      if (ruleFor(this.charAt(x, y)).solid || this.npcAt(x, y)) break;
+      out.push({ x, y });
+    }
+    return out;
+  }
+
+  /** Floating "!" over an NPC, removed after `ms`. */
+  exclaim(n: NpcRuntime, ms = 700) {
+    const b = this.scene.add.image(n.sprite.x, n.sprite.y - 30, PROP.bubble).setDepth(60).setScale(0);
+    this.scene.tweens.add({ targets: b, scale: 1, duration: 160, ease: "Back.easeOut" });
+    this.scene.time.delayedCall(ms, () => b.destroy());
+  }
 
   /* ------------------------------------------------------------ */
 
@@ -113,6 +195,9 @@ export class WorldMap {
       case "s": return [`sand:${this.mask8(x, y, (c) => c === "s" || c === "~")}:${h % 5}`];
       case "~": { const m = this.mask8(x, y, (c) => c === "~"); return [0, 1, 2].map((f) => `water:${m}:${f}:${(x + y * 2) % 3}`); }
       case "C": return [`cliff:${this.mask8(x, y, (c) => c === "C") & 15}:${y % 2}`];
+      case "f": return ["crops"];
+      case "v": return ["cabbage"];
+      case "b": return ["bridge"];
       default: return [`ground:${h % 6 === 0 ? 1 : 0}`];
     }
   }
@@ -144,19 +229,31 @@ export class WorldMap {
       else if (ch === "R") this.scene.add.image(x * T, y * T, PROP.rock).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
       else if (ch === "S") this.scene.add.image(x * T, y * T, PROP.sign).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
       else if (ch === "F") this.scene.add.image(x * T, y * T, PROP.fence).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
+      else if (ch === "Y") this.scene.add.image(x * T + 16, (y + 1) * T, PROP.apple).setOrigin(0.5, 1).setDepth(depthFor(y, 0.6));
+      else if (ch === "h") this.scene.add.image(x * T, y * T, PROP.hedge).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
+      else if (ch === "W") this.scene.add.image(x * T, y * T, PROP.well).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
+      else if (ch === "n") this.scene.add.image(x * T, y * T, PROP.bench).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
+      else if (ch === "m") this.scene.add.image(x * T, y * T, PROP.mailbox).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
+      else if (ch === "l") this.scene.add.image(x * T, y * T, PROP.lamp).setOrigin(0, 0).setDepth(depthFor(y, 0.6));
     }
   }
 
   private spawnNpc(def: NpcDef, defeated: boolean) {
     const pos = defeated && def.moveToWhenDefeated ? def.moveToWhenDefeated : def;
-    const texture = ensureCharacterTexture(this.scene, def.look);
     const x = pos.x * T + 16, y = pos.y * T + 16;
-    const shadow = this.scene.add.image(x, y + 13, PROP.shadow).setDepth(depthFor(pos.y, 0.1));
-    const sprite = this.scene.add.sprite(x, y, texture, 0).setDepth(depthFor(pos.y, 0.5));
-    setCharacterFrame(sprite, def.facing, 0);
-    this.npcs.push({ def, x: pos.x, y: pos.y, sprite, shadow });
+    const critter = def.role === "critter";
+    const shadow = this.scene.add.image(x, y + (critter ? 10 : 13), PROP.shadow).setDepth(depthFor(pos.y, 0.1)).setScale(critter ? 0.8 : 1);
+    const sprite = critter
+      ? this.scene.add.sprite(x, y - 4, spriteKey(def.speciesId ?? "pidgey", "front")).setScale(1.5).setDepth(depthFor(pos.y, 0.5))
+      : this.scene.add.sprite(x, y, ensureCharacterTexture(this.scene, def.look), 0).setDepth(depthFor(pos.y, 0.5));
+    const n: NpcRuntime = { def, x: pos.x, y: pos.y, home: { x: pos.x, y: pos.y }, facing: def.facing, moving: false, sprite, shadow };
+    this.faceNpc(n, def.facing);
+    if (critter) this.scene.tweens.add({ targets: sprite, scaleY: 1.6, duration: 500 + Math.random() * 300, yoyo: true, repeat: -1 });
+    this.npcs.push(n);
   }
 }
+
+const dy = (v: Point) => v.y;
 
 /** Shared by player & NPCs: pick the right frame from a character sheet. */
 export function setCharacterFrame(sprite: Phaser.GameObjects.Sprite, dir: Direction, pose: 0 | 1 | 2) {

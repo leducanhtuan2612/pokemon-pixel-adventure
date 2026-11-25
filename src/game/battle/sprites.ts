@@ -57,5 +57,33 @@ export function ensurePlaceholders(scene: Phaser.Scene) {
   }
 }
 
+/** Shiny variant: hue-rotated copy of the normal sprite, generated once. */
+export function shinyKey(scene: Phaser.Scene, speciesId: string, view: "front" | "back") {
+  const base = spriteKey(speciesId, view), key = `${base}-shiny`;
+  if (scene.textures.exists(key) || !scene.textures.exists(base)) return scene.textures.exists(key) ? key : base;
+  const src = scene.textures.get(base).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
+  const c = document.createElement("canvas");
+  c.width = src.width; c.height = src.height;
+  const ctx = c.getContext("2d")!;
+  ctx.drawImage(src, 0, 0);
+  const img = ctx.getImageData(0, 0, c.width, c.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue;
+    const r = d[i] / 255, g = d[i + 1] / 255, b = d[i + 2] / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+    if (max - min < 0.08) continue; // keep greys/outlines
+    const s = l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min);
+    let h = max === r ? (g - b) / (max - min) + (g < b ? 6 : 0) : max === g ? (b - r) / (max - min) + 2 : (r - g) / (max - min) + 4;
+    h = ((h / 6 + 0.42) % 1 + 1) % 1;
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    const f = (t: number) => { t = (t + 1) % 1; return t < 1 / 6 ? p + (q - p) * 6 * t : t < 1 / 2 ? q : t < 2 / 3 ? p + (q - p) * (2 / 3 - t) * 6 : p; };
+    d[i] = f(h + 1 / 3) * 255; d[i + 1] = f(h) * 255; d[i + 2] = f(h - 1 / 3) * 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  scene.textures.addCanvas(key, c)!.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  return key;
+}
+
 /** Public URL for React panels (null when only a placeholder exists). */
 export const spriteUrl = (speciesId: string) => findUrl("front", speciesId) ?? null;

@@ -19,7 +19,7 @@ export type Outcome = "win" | "lose" | "run" | "caught";
 /** Lightweight snapshot the UI renders from. */
 export interface MonView {
   uid: string; speciesId: string; name: string; level: number; hp: number; maxHp: number;
-  status: StatusCondition | null; expFrac: number;
+  status: StatusCondition | null; expFrac: number; shiny: boolean;
 }
 
 export type BattleEvent =
@@ -79,7 +79,7 @@ export function viewOf(mon: PokemonInstance): MonView {
   const lo = expForLevel(growth, mon.level), hi = expForLevel(growth, mon.level + 1);
   return {
     uid: mon.uid, speciesId: mon.speciesId, name: displayName(mon), level: mon.level, hp: mon.hp, maxHp: maxHp(mon),
-    status: mon.status, expFrac: hi > lo ? Math.max(0, Math.min(1, (mon.exp - lo) / (hi - lo))) : 1,
+    status: mon.status, shiny: !!mon.shiny, expFrac: hi > lo ? Math.max(0, Math.min(1, (mon.exp - lo) / (hi - lo))) : 1,
   };
 }
 
@@ -123,7 +123,7 @@ export class BattleEngine {
       ev.push({ kind: "text", text: `${this.setup.trainerName} gửi ra ${displayName(firstFoe)}!` });
     } else {
       ev.push({ kind: "sendOut", side: "foe", mon: viewOf(firstFoe) });
-      ev.push({ kind: "text", text: `${displayName(firstFoe)} hoang dã xuất hiện!` });
+      ev.push({ kind: "text", text: firstFoe.shiny ? `✦ Một ${displayName(firstFoe)} SHINY xuất hiện! ✦` : `${displayName(firstFoe)} hoang dã xuất hiện!` });
     }
     ev.push({ kind: "text", text: `Tiến lên! ${displayName(lead)}!` });
     ev.push({ kind: "sendOut", side: "player", mon: viewOf(lead) });

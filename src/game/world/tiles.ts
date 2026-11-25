@@ -23,10 +23,19 @@ export const TILE_RULES: Record<string, TileRule> = {
   "S": { name: "sign", solid: true },
   "B": { name: "building", solid: true },
   "D": { name: "door", solid: true },
+  "b": { name: "bridge", solid: false },
+  "Y": { name: "apple-tree", solid: true },
+  "h": { name: "hedge", solid: true },
+  "f": { name: "crops", solid: true },
+  "v": { name: "cabbage", solid: true },
+  "W": { name: "well", solid: true },
+  "n": { name: "bench", solid: true },
+  "m": { name: "mailbox", solid: true },
+  "l": { name: "lamp", solid: true },
 };
 
 export const ruleFor = (ch: string): TileRule => TILE_RULES[ch] ?? { name: "unknown", solid: true };
 
 /** Tile chars that visually connect to path tiles. */
-export const PATH_LIKE = new Set(["=", "E", "D"]);
+export const PATH_LIKE = new Set(["=", "E", "D", "b"]);
 export const WATER_LIKE = new Set(["~"]);

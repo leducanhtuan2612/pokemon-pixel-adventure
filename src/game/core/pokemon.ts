@@ -17,6 +17,8 @@ export interface PokemonInstance {
   sleepTurns: number;
   moves: MoveSlot[];
   caughtBall?: string;
+  /** Rare colour variant (1/128 in the wild). */
+  shiny?: boolean;
 }
 
 export type Stats = BaseStats;

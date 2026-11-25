@@ -1,16 +1,13 @@
 import { session } from "../game/core/GameSession";
 import { displayName } from "../game/core/pokemon";
 import { useGameStore } from "../state/gameStore";
+import { objectiveFor } from "../game/core/objectives";
 import { HpBar, Sprite } from "./menus/common";
 
 export function SidePanel() {
   useGameStore((s) => s.version);
   const d = session.data;
-  const trainers = ["trainer1", "trainer2", "trainer3"].filter((id) => d.defeated.includes(id)).length;
-  const objective = !d.starterChosen ? "Gặp Ranger Oak để nhận Pokémon đầu tiên."
-    : d.badges.includes("forest") ? "Forest Badge ✓ — đi về phía đông để mở khu vực mới."
-    : trainers < 3 ? `Đánh bại Finn, Willow và Moss (${trainers}/3).`
-    : "Thách đấu Forest Guardian ở cổng phía đông!";
+  const objective = objectiveFor(d);
   return <aside className="side-panel">
     <div className="panel-heading"><span>YOUR ADVENTURE</span><b>01</b></div>
     <div className="trainer-card">
@@ -26,7 +23,7 @@ export function SidePanel() {
       </div>) : <small className="muted">Chưa có Pokémon.</small>}
     </div>
     <div className="section-title">NHIỆM VỤ</div>
-    <div className="quest"><div className="quest-icon">✦</div><div><strong>Greenleaf Forest Trial</strong><p>{objective}</p></div></div>
+    <div className="quest"><div className="quest-icon">✦</div><div><strong>Làng Lá Xanh</strong><p>{objective}</p></div></div>
     <div className="section-title">ĐIỀU KHIỂN</div>
     <div className="controls">
       <span><kbd>WASD</kbd><kbd>←↑→↓</kbd></span><small>Di chuyển</small>

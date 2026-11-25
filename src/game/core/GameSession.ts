@@ -21,6 +21,8 @@ export interface SaveData {
   unlockedAreas: string[];
   steps: number;
   starterChosen: boolean;
+  /** One-off world state: picked items ("item:<map>:<id>"), gifts received, etc. */
+  flags: string[];
 }
 
 const KEY = "pixel-adventure-save-v1";
@@ -33,7 +35,7 @@ function newGame(): SaveData {
   return {
     version: VERSION, playerName: "RED", mapId: START_MAP_ID, position: null, money: 3000,
     party: [], box: [], bag: { "poke-ball": 5, potion: 3 }, dex: { seen: [], caught: [] },
-    defeated: [], badges: [], unlockedAreas: [START_MAP_ID], steps: 0, starterChosen: false,
+    defeated: [], badges: [], unlockedAreas: [START_MAP_ID], steps: 0, starterChosen: false, flags: [],
   };
 }
 
@@ -123,6 +125,9 @@ export class GameSession {
     this.data.starterChosen = true;
     this.changed();
   }
+
+  hasFlag(f: string) { return this.data.flags.includes(f); }
+  setFlag(f: string) { if (!this.hasFlag(f)) this.data.flags.push(f); }
 
   healAll() { this.data.party.forEach(healPokemon); }
   hasUsablePokemon() { return this.data.party.some((p) => p.hp > 0); }

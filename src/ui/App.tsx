@@ -37,7 +37,7 @@ export default function App() {
     <header className="topbar"><div className="brand-mark">✦</div><div><strong>POKÉMON</strong><span>PIXEL ADVENTURE</span></div><div className="status-pill"><i /> PIXEL WORLD</div></header>
     <section className="game-layout">
       <div className="game-frame">
-        <div className="frame-label"><span>MAP 01</span><span>GREENLEAF VILLAGE</span></div>
+        <div className="frame-label"><span>MAP 01</span><span>LÀNG LÁ XANH · ROUTE 101</span></div>
         <div className="game-stage">
           <div ref={host} className="game-host" />
           <MenuLayer />
@@ -52,7 +52,7 @@ export default function App() {
             <small>WASD / ← ↑ → ↓ để di chuyển · Z/Enter tương tác · ESC menu</small>
           </div>}
         </div>
-        <div className="frame-bottom"><span>▲ KANTO-LIKE REGION</span><span>BUILD 0.2.0</span></div>
+        <div className="frame-bottom"><span>▲ KANTO-LIKE REGION</span><span>BUILD 0.3.0</span></div>
       </div>
       <SidePanel />
     </section>

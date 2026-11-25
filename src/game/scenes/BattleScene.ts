@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { BattleEngine, viewOf, type BattleEvent, type BattleSetup, type MonView, type Outcome, type PlayerAction, type Side } from "../battle/BattleEngine";
-import { hasBack, spriteKey } from "../battle/sprites";
+import { hasBack, shinyKey, spriteKey } from "../battle/sprites";
 import { ITEMS, getItem } from "../data/items";
 import { getMove, type MoveData } from "../data/moves";
 import { getSpecies } from "../data/species";
@@ -404,7 +404,8 @@ export class BattleScene extends Phaser.Scene {
     const home = side === "player" ? PLAYER : FOE;
     this.stopIdle(side);
     const back = side === "player" && hasBack(this, v.speciesId);
-    sprite.setTexture(spriteKey(v.speciesId, back ? "back" : "front")).setFlipX(side === "player" && !back);
+    const view = back ? "back" : "front";
+    sprite.setTexture(v.shiny ? shinyKey(this, v.speciesId, view) : spriteKey(v.speciesId, view)).setFlipX(side === "player" && !back);
     sprite.setPosition(home.x, home.y).setAlpha(1).clearTint();
     this.setView(box, v);
 
@@ -424,8 +425,19 @@ export class BattleScene extends Phaser.Scene {
       await this.tween({ targets: sprite, scale, duration: 280, ease: "Back.easeOut" });
       sprite.clearTint();
     }
+    if (v.shiny) await this.shinySparkle(sprite);
     await this.tween({ targets: box.root, alpha: 1, x: box.root.x, duration: 200 });
     this.startIdle(side);
+  }
+
+  private async shinySparkle(s: Phaser.GameObjects.Image) {
+    const c = this.center(s);
+    const stars = Array.from({ length: 8 }, (_, i) => {
+      const a = (i / 8) * Math.PI * 2;
+      const st = this.particle("fx-star", c.x + Math.cos(a) * 20, c.y + Math.sin(a) * 20, i % 2 ? 0xfff4a0 : 0xffffff, 34).setScale(0.2);
+      return this.tween({ targets: st, x: c.x + Math.cos(a) * 64, y: c.y + Math.sin(a) * 64, scale: 0.7, alpha: 0, duration: 650, delay: i * 40 }).then(() => st.destroy());
+    });
+    await Promise.all(stars);
   }
 
   private async recall() {

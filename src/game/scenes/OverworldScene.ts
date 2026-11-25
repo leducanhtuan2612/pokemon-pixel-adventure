@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { getMap } from "../data/maps";
 import { session } from "../core/GameSession";
 import { createPokemon } from "../core/pokemon";
+import { getItem } from "../data/items";
 import { PlayerController } from "../entities/PlayerController";
 import { EncounterSystem } from "../systems/EncounterSystem";
 import { DialogBox, showLocationBanner } from "../ui/DialogBox";
@@ -10,6 +11,7 @@ import type { Direction, NpcDef, Point } from "../world/types";
 import type { BattleSetup } from "../battle/BattleEngine";
 import type { BattleResult, BattleSceneData } from "./BattleScene";
 import { isUiOpen, useGameStore } from "../../state/gameStore";
+import { objectiveFor } from "../core/objectives";
 
 const opposite: Record<Direction, Direction> = { up: "down", down: "up", left: "right", right: "left" };
 
@@ -22,6 +24,7 @@ export class OverworldScene extends Phaser.Scene {
   private inBattle = false;
   private lastTile: Point = { x: 0, y: 0 };
   private awaitingStarter = false;
+  private cutscene = false;
 
   constructor() { super("OverworldScene"); }
 
@@ -29,7 +32,9 @@ export class OverworldScene extends Phaser.Scene {
 
   create() {
     this.world = new WorldMap(this, getMap(this.save.mapId));
-    this.world.build(this.save.defeated);
+    const prefix = `item:${this.world.def.id}:`;
+    this.world.build(this.save.defeated, this.save.flags.filter((f) => f.startsWith(prefix)).map((f) => f.slice(prefix.length)));
+    this.time.addEvent({ delay: 700, loop: true, callback: () => this.wanderTick() });
 
     const start = this.validStart(this.save.position);
     this.lastTile = { ...start };
@@ -57,7 +62,7 @@ export class OverworldScene extends Phaser.Scene {
   }
 
   update(time: number) {
-    this.player.locked = !this.started || this.inBattle || this.dialog.isOpen || isUiOpen();
+    this.player.locked = !this.started || this.inBattle || this.dialog.isOpen || isUiOpen() || this.cutscene;
     this.player.update(time);
   }
 
@@ -73,7 +78,19 @@ export class OverworldScene extends Phaser.Scene {
     this.openDialog(!this.save.starterChosen ? this.world.def.intro : [this.world.def.name, this.objectiveText()]);
   };
 
-  private canAct() { return this.started && !this.inBattle && !this.dialog.isOpen && !isUiOpen() && !this.player.isMoving; }
+  private canAct() { return this.started && !this.inBattle && !this.dialog.isOpen && !isUiOpen() && !this.player.isMoving && !this.cutscene; }
+
+  /** Villagers and wild critters stroll around near their spawn point. */
+  private wanderTick() {
+    if (!this.started || this.inBattle || this.dialog.isOpen || isUiOpen() || this.cutscene) return;
+    const dirs: Direction[] = ["up", "down", "left", "right"];
+    for (const n of this.world.npcs) {
+      if (!n.def.wander || n.moving || Math.random() > (n.def.role === "critter" ? 0.45 : 0.3)) continue;
+      const dir = dirs[Math.floor(Math.random() * 4)];
+      if (Math.random() < 0.35) { this.world.faceNpc(n, dir); continue; }
+      if (this.world.canWander(n, dir)) void this.world.stepNpc(n, dir, this.player.tile, n.def.role === "critter" ? 360 : 320);
+    }
+  }
 
   private openMenu() {
     if (this.dialog.isOpen || this.inBattle || !this.started || isUiOpen()) return;
@@ -83,8 +100,8 @@ export class OverworldScene extends Phaser.Scene {
   private onSessionChange() {
     if (this.awaitingStarter && this.save.starterChosen) {
       this.awaitingStarter = false;
-      this.time.delayedCall(150, () => (this.speaker = "Ranger Oak", this.openDialog([
-        "Ranger Oak: Lựa chọn tuyệt vời! Hãy chăm sóc nó thật tốt nhé.",
+      this.time.delayedCall(150, () => (this.speaker = "Giáo sư Birch", this.openDialog([
+        "Giáo sư Birch: Lựa chọn tuyệt vời! Hãy chăm sóc nó thật tốt nhé.",
         "Ta tặng thêm 5 Poké Ball. Bấm ESC để mở menu xem đội hình và túi đồ.",
       ], () => { session.addItem("poke-ball", 5); session.changed(); })));
     }
@@ -97,16 +114,10 @@ export class OverworldScene extends Phaser.Scene {
     return inside && !this.world.isBlocked(p.x, p.y) ? p : spawn;
   }
 
-  private objectiveText() {
-    if (!this.save.starterChosen) return "Mục tiêu: gặp Ranger Oak để nhận Pokémon đầu tiên.";
-    const trainers = ["trainer1", "trainer2", "trainer3"].filter((id) => this.save.defeated.includes(id)).length;
-    if (this.save.badges.includes("forest")) return "Forest Badge ✓ — đi theo đường phía đông để sang khu vực mới.";
-    if (trainers < 3) return `Mục tiêu: đánh bại Trainer (${trainers}/3), rồi thách đấu Forest Guardian.`;
-    return "Mục tiêu: thách đấu Forest Guardian ở cổng phía đông!";
-  }
+  private objectiveText() { return objectiveFor(this.save); }
 
   private onConfirm() {
-    if (!this.started || this.inBattle || isUiOpen()) return;
+    if (!this.started || this.inBattle || isUiOpen() || this.cutscene) return;
     if (this.dialog.advance()) return;
     if (this.player.isMoving) return;
     this.interact();
@@ -120,7 +131,7 @@ export class OverworldScene extends Phaser.Scene {
     if (exit) {
       this.save.position = { ...exit.returnTo };
       session.save();
-      if (exit.requiresBadge && !this.save.badges.includes("forest")) {
+      if (exit.closed || (exit.requiresBadge && !this.save.badges.includes("forest"))) {
         this.openDialog(exit.lockedText, () => this.player.teleport(exit.returnTo, "left"));
       } else {
         if (!this.save.unlockedAreas.includes(exit.to)) this.save.unlockedAreas.push(exit.to);
@@ -140,8 +151,8 @@ export class OverworldScene extends Phaser.Scene {
       if (!this.save.starterChosen) {
         const back = { ...this.lastTile };
         this.save.position = { ...back };
-        this.speaker = "Ranger Oak";
-        this.openDialog(["Ranger Oak: Khoan đã! Cỏ cao rất nguy hiểm khi chưa có Pokémon!", "Hãy đến gặp ta để nhận Pokémon đầu tiên."],
+        this.speaker = "Giáo sư Birch";
+        this.openDialog(["Giáo sư Birch: Khoan đã! Cỏ cao rất nguy hiểm khi chưa có Pokémon!", "Hãy đến gặp ta để nhận Pokémon đầu tiên."],
           () => this.player.teleport(back, opposite[this.player.facing]));
         return;
       }
@@ -152,6 +163,32 @@ export class OverworldScene extends Phaser.Scene {
     }
     this.lastTile = { ...t };
     if (this.save.steps % 8 === 0) session.save();
+    this.checkTrainerSight();
+  }
+
+  /** Trainers who see the player walk over and challenge them (with a "!" bubble). */
+  private checkTrainerSight() {
+    if (!this.save.starterChosen || !session.hasUsablePokemon()) return;
+    const p = this.player.tile;
+    for (const n of this.world.npcs) {
+      if (n.def.role !== "trainer" || !n.def.sight || this.save.defeated.includes(n.def.id) || n.moving) continue;
+      if (!this.world.sightLine(n).some((c) => c.x === p.x && c.y === p.y)) continue;
+      void this.spotted(n);
+      return;
+    }
+  }
+
+  private async spotted(n: NpcRuntime) {
+    this.cutscene = true;
+    this.world.exclaim(n, 800);
+    await new Promise((r) => this.time.delayedCall(800, r));
+    const p = this.player.tile;
+    for (let i = 0; i < 12 && Math.abs(n.x - p.x) + Math.abs(n.y - p.y) > 1; i++) {
+      if (!(await this.world.stepNpc(n, n.facing, p, 240))) break;
+    }
+    this.player.face(opposite[n.facing]);
+    this.cutscene = false;
+    this.talk(n);
   }
 
   private interact() {
@@ -159,10 +196,29 @@ export class OverworldScene extends Phaser.Scene {
     const f = this.player.facingTile();
     const npc = this.world.npcAt(f.x, f.y);
     if (npc) { this.talk(npc); return; }
+    const item = this.world.itemAt(f.x, f.y);
+    if (item) { this.pickItem(item.id, item.item, item.qty, !!item.hidden); return; }
     const sign = this.world.signAt(f.x, f.y);
     if (sign) { this.openDialog(sign.text); return; }
     const door = this.world.doorAt(f.x, f.y);
     if (door) { this.openDialog(door.doorText); return; }
+    const flavor: Record<string, string[]> = {
+      Y: ["Cây táo sai trĩu quả, thơm lừng cả góc vườn."], W: ["Giếng nước trong vắt. Bạn thấy bóng mình phản chiếu."],
+      f: ["Những luống rau non đang lên xanh mướt."], v: ["Bắp cải to tròn — chắc bác Tư chăm kỹ lắm."],
+      m: ["Hòm thư trống trơn."], n: ["Một chiếc ghế gỗ để ngồi ngắm cối xay gió."], l: ["Cây đèn đường sẽ sáng khi trời tối."],
+      "~": ["Dòng suối chảy róc rách. Có vài con cá nhỏ bơi qua."],
+    };
+    const text = flavor[this.world.charAt(f.x, f.y)];
+    if (text) this.openDialog(text);
+  }
+
+  private pickItem(id: string, itemId: string, qty: number, hidden: boolean) {
+    const name = getItem(itemId)?.name ?? itemId;
+    session.addItem(itemId, qty);
+    session.setFlag(`item:${this.world.def.id}:${id}`);
+    this.world.removeItem(id);
+    session.changed();
+    this.openDialog([`${hidden ? "Ồ? Có gì đó lấp lánh… " : ""}Bạn nhặt được ${qty > 1 ? `${qty} ` : ""}${name}!`, `Đã cất ${name} vào Túi đồ.`]);
   }
 
   private talk(n: NpcRuntime) {
@@ -177,19 +233,33 @@ export class OverworldScene extends Phaser.Scene {
       return;
     }
     if (def.role === "mart") { this.openDialog(def.dialog, () => useGameStore.getState().open("mart")); return; }
+    if (def.role === "villager") { this.openDialog(def.dialog); return; }
+    if (def.role === "critter") { this.speaker = undefined; this.openDialog(def.dialog); return; }
     if (def.role === "guide") {
       if (def.givesStarter && !this.save.starterChosen) {
         this.openDialog([
-          "Ranger Oak: Chào cậu! Ra ngoài mà không có Pokémon thì nguy hiểm lắm.",
+          "Giáo sư Birch: A, cháu đến rồi! Ra Route 101 mà không có Pokémon thì nguy hiểm lắm.",
           "Ta có 3 Pokémon ở đây. Hãy chọn một bạn đồng hành!",
         ], () => { this.awaitingStarter = true; useGameStore.getState().open("starter"); });
+        return;
+      }
+      const gift = def.gift;
+      if (gift && this.save.starterChosen && !session.hasFlag(gift.flag)) {
+        if ((gift.requiresCaught ?? 0) <= this.save.dex.caught.length) {
+          this.openDialog(gift.text, () => {
+            session.addItem(gift.item, gift.qty);
+            session.setFlag(gift.flag);
+            session.changed();
+            this.openDialog([`Bạn nhận được ${gift.qty} ${getItem(gift.item)?.name ?? gift.item}!`]);
+          });
+        } else this.openDialog([...def.dialog, ...(gift.notYet ?? [])]);
         return;
       }
       this.openDialog(def.dialog);
       return;
     }
     if (done) { this.openDialog(def.defeatedDialog ?? ["…"]); return; }
-    if (!this.save.starterChosen) { this.openDialog(["Bạn chưa có Pokémon! Hãy gặp Ranger Oak trước."]); return; }
+    if (!this.save.starterChosen) { this.openDialog(["Bạn chưa có Pokémon! Hãy gặp Giáo sư Birch trước."]); return; }
     const missing = (def.requires ?? []).filter((id) => !this.save.defeated.includes(id));
     if (missing.length) { this.openDialog(def.lockedDialog ?? ["Hãy quay lại sau."]); return; }
     if (!session.hasUsablePokemon()) { this.openDialog(["Pokémon của bạn đã kiệt sức! Hãy gặp Nurse Maple."]); return; }

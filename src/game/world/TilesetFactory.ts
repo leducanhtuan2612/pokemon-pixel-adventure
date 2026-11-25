@@ -132,6 +132,13 @@ function paintCliff(ctx: Ctx, ox: number, oy: number, m: number, seed: number) {
   if (!(m & S)) { px(ctx, ox, oy, 0, 15, "#5c4c40", 16, 1); }
 }
 
+function paintPatternTile(ctx: Ctx, ox: number, oy: number, name: "crops" | "cabbage" | "bridge") {
+  const palette = PAL[name];
+  ctx.fillStyle = palette["."] ?? "#68a8f0";
+  ctx.fillRect(ox, oy, T, T);
+  paintPattern(ctx, pat(name), palette, ox, oy);
+}
+
 export type GroundPainter = (ctx: Ctx, ox: number, oy: number) => void;
 
 /** Descriptor → painter. Descriptors are produced by WorldMap from the layout. */
@@ -146,6 +153,9 @@ export function painterFor(desc: string): GroundPainter {
     case "sand": return (ctx, x, y) => paintSand(ctx, x, y, n1, n2);
     case "water": return (ctx, x, y) => paintWater(ctx, x, y, n1, n2, n3);
     case "cliff": return (ctx, x, y) => paintCliff(ctx, x, y, n1, n2);
+    case "crops": return (ctx, x, y) => paintPatternTile(ctx, x, y, "crops");
+    case "cabbage": return (ctx, x, y) => paintPatternTile(ctx, x, y, "cabbage");
+    case "bridge": return (ctx, x, y) => paintPatternTile(ctx, x, y, "bridge");
     default: return (ctx, x, y) => paintGround(ctx, x, y, false);
   }
 }
@@ -183,12 +193,47 @@ function canvasTexture(scene: Phaser.Scene, key: string, w: number, h: number, d
   return key;
 }
 
-export const PROP = { tree: "prop-tree", rock: "prop-rock", sign: "prop-sign", fence: "prop-fence", grassFront: "prop-grass-front", shadow: "prop-shadow", leaf: "fx-leaf" } as const;
+export const PROP = {
+  tree: "prop-tree", apple: "prop-apple", rock: "prop-rock", sign: "prop-sign", fence: "prop-fence", hedge: "prop-hedge",
+  well: "prop-well", bench: "prop-bench", mailbox: "prop-mailbox", lamp: "prop-lamp", itemBall: "prop-item",
+  grassFront: "prop-grass-front", shadow: "prop-shadow", leaf: "fx-leaf", bubble: "fx-bubble", blades: "prop-blades",
+} as const;
 
 export function ensurePropTextures(scene: Phaser.Scene) {
   validatePatterns();
   canvasTexture(scene, PROP.tree, T, T * 2, (ctx) => paintPattern(ctx, pat("tree"), PAL.tree, 0, 0));
+  canvasTexture(scene, PROP.apple, T, T * 2, (ctx) => { paintPattern(ctx, pat("tree"), PAL.tree, 0, 0); paintPattern(ctx, pat("fruit"), PAL.fruit, 0, 0); });
   canvasTexture(scene, PROP.rock, T, T, (ctx) => paintPattern(ctx, pat("rock"), PAL.rock, 0, 0));
+  canvasTexture(scene, PROP.hedge, T, T, (ctx) => paintPattern(ctx, pat("hedge"), PAL.hedge, 0, 0));
+  canvasTexture(scene, PROP.well, T, T, (ctx) => paintPattern(ctx, pat("well"), PAL.well, 0, 0));
+  canvasTexture(scene, PROP.bench, T, T, (ctx) => paintPattern(ctx, pat("bench"), PAL.bench, 0, 0));
+  canvasTexture(scene, PROP.mailbox, T, T, (ctx) => paintPattern(ctx, pat("mailbox"), PAL.mailbox, 0, 0));
+  canvasTexture(scene, PROP.lamp, T, T, (ctx) => paintPattern(ctx, pat("lamp"), PAL.lamp, 0, 0));
+  canvasTexture(scene, PROP.itemBall, T, T, (ctx) => {
+    ctx.fillStyle = "rgba(20,50,25,0.3)"; ctx.beginPath(); ctx.ellipse(16, 26, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#202028"; ctx.beginPath(); ctx.arc(16, 17, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#f8f8f8"; ctx.beginPath(); ctx.arc(16, 17, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#e04040"; ctx.beginPath(); ctx.arc(16, 17, 7, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = "#202028"; ctx.fillRect(9, 16, 14, 2);
+    ctx.fillStyle = "#f8f8f8"; ctx.fillRect(14, 15, 4, 4); ctx.fillStyle = "#ffb0b0"; ctx.fillRect(11, 12, 3, 2);
+  });
+  canvasTexture(scene, PROP.bubble, 20, 22, (ctx) => {
+    ctx.fillStyle = "#303040"; ctx.fillRect(0, 0, 20, 18); ctx.fillRect(6, 18, 6, 4);
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(2, 2, 16, 14); ctx.fillRect(8, 16, 2, 3);
+    ctx.fillStyle = "#e03838"; ctx.fillRect(8, 4, 4, 7); ctx.fillRect(8, 12, 4, 3);
+  });
+  canvasTexture(scene, PROP.blades, 84, 84, (ctx) => {
+    ctx.translate(42, 42);
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = "#4a2c18"; ctx.fillRect(-3, -40, 6, 40);
+      ctx.fillStyle = "#f4ead0"; ctx.fillRect(3, -38, 12, 30);
+      ctx.fillStyle = "#c8b890"; ctx.fillRect(3, -38, 12, 2); ctx.fillRect(3, -28, 12, 2); ctx.fillRect(3, -18, 12, 2);
+      ctx.fillStyle = "#4a2c18"; ctx.fillRect(14, -38, 2, 30);
+      ctx.rotate(Math.PI / 2);
+    }
+    ctx.fillStyle = "#3a2418"; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#c89058"; ctx.beginPath(); ctx.arc(0, 0, 3, 0, Math.PI * 2); ctx.fill();
+  });
   canvasTexture(scene, PROP.sign, T, T, (ctx) => paintPattern(ctx, pat("sign"), PAL.sign, 0, 0));
   canvasTexture(scene, PROP.fence, T, T, (ctx) => paintPattern(ctx, pat("fence"), PAL.fence, 0, 0));
   canvasTexture(scene, PROP.grassFront, T, T, (ctx) => paintPattern(ctx, pat("tallGrassFront"), { ...PAL.tallGrass, ".": "" }, 0, 0));
@@ -217,6 +262,7 @@ export const BUILDING_SHADOW = 6;
 
 /** FireRed-style house: shingled roof with ridge and eaves, plank walls, framed windows, door, optional plaque/chimney. */
 export function ensureBuildingTexture(scene: Phaser.Scene, b: BuildingDef) {
+  if (b.style === "windmill") return ensureWindmillTexture(scene, b);
   const key = `bld-${b.id}`;
   const W = b.w * T, H = b.h * T + BUILDING_OVERHANG + BUILDING_SHADOW;
   return canvasTexture(scene, key, W, H, (ctx) => {
@@ -287,6 +333,39 @@ export function ensureBuildingTexture(scene: Phaser.Scene, b: BuildingDef) {
       ctx.fillStyle = shade(b.roof, -10); ctx.fillRect(pxl, py + 16, pw, 2);
       drawPixelText(ctx, b.plaque, pxl + 7, py + 2, css(Phaser.Display.Color.IntegerToColor(b.roof).darken(30).color), 2);
     }
+  });
+}
+
+/** Windmill tower (blades are a separate rotating sprite, see PROP.blades). */
+export const WINDMILL_OVERHANG = 40;
+function ensureWindmillTexture(scene: Phaser.Scene, b: BuildingDef) {
+  const key = `bld-${b.id}`;
+  const Wd = b.w * T, Ht = b.h * T + WINDMILL_OVERHANG + BUILDING_SHADOW;
+  return canvasTexture(scene, key, Wd, Ht, (ctx) => {
+    const base = WINDMILL_OVERHANG + b.h * T, k = "#2c2430";
+    ctx.fillStyle = "rgba(20,50,25,0.28)"; ctx.fillRect(6, base - 2, Wd - 4, BUILDING_SHADOW + 2);
+    // tapered stone/plaster tower
+    const topY = 26, topInset = 18;
+    ctx.fillStyle = k;
+    ctx.beginPath(); ctx.moveTo(topInset - 2, topY); ctx.lineTo(Wd - topInset + 2, topY); ctx.lineTo(Wd - 2, base); ctx.lineTo(2, base); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#f0e4cc";
+    ctx.beginPath(); ctx.moveTo(topInset, topY + 2); ctx.lineTo(Wd - topInset, topY + 2); ctx.lineTo(Wd - 4, base - 2); ctx.lineTo(4, base - 2); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#d8c8a8";
+    for (let y = topY + 14; y < base - 6; y += 12) ctx.fillRect(10, y, Wd - 20, 2);
+    ctx.fillStyle = "#c8b490"; ctx.fillRect(Wd - 22, topY + 6, 6, base - topY - 12);
+    // conical roof
+    ctx.fillStyle = k;
+    ctx.beginPath(); ctx.moveTo(Wd / 2, 0); ctx.lineTo(Wd - 8, topY + 4); ctx.lineTo(8, topY + 4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#b85040";
+    ctx.beginPath(); ctx.moveTo(Wd / 2, 4); ctx.lineTo(Wd - 12, topY + 1); ctx.lineTo(12, topY + 1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#d87060"; ctx.beginPath(); ctx.moveTo(Wd / 2, 4); ctx.lineTo(Wd / 2 - 10, topY + 1); ctx.lineTo(Wd / 2 - 2, topY + 1); ctx.closePath(); ctx.fill();
+    // round window + door
+    ctx.fillStyle = k; ctx.beginPath(); ctx.arc(Wd / 2, topY + 34, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#6cb0e8"; ctx.beginPath(); ctx.arc(Wd / 2, topY + 34, 6, 0, Math.PI * 2); ctx.fill();
+    const dx = (b.door.x - b.x) * T, dTop = base - 30;
+    ctx.fillStyle = k; ctx.fillRect(dx + 5, dTop, 22, 30);
+    ctx.fillStyle = "#8a5a30"; ctx.beginPath(); ctx.moveTo(dx + 7, dTop + 30); ctx.lineTo(dx + 7, dTop + 10); ctx.arc(dx + 16, dTop + 10, 9, Math.PI, 0); ctx.lineTo(dx + 25, dTop + 30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#f8d870"; ctx.fillRect(dx + 20, dTop + 17, 2, 3);
   });
 }
 
