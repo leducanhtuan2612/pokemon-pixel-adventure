@@ -62,7 +62,7 @@ export class BattleScene extends Phaser.Scene {
   private playerSprite!: Phaser.GameObjects.Image;
   private foeBox!: InfoBox;
   private playerBox!: InfoBox;
-  private foeTrainer?: Phaser.GameObjects.Sprite;
+  private foengười nuôi?: Phaser.GameObjects.Sprite;
   private playerTrainer?: Phaser.GameObjects.Sprite;
   private idle: Partial<Record<Side, Phaser.Tweens.Tween>> = {};
   private lastAction = 0;
@@ -144,7 +144,7 @@ export class BattleScene extends Phaser.Scene {
     }
     while (this.engine.phase !== "over") {
       if (this.engine.phase === "forceSwitch") {
-        const idx = await this.pickPokemon(true, "Chọn Pokémon tiếp theo.");
+        const idx = await this.pickPokemon(true, "Chọn linh thú tiếp theo.");
         if (idx !== null) await this.play(this.engine.forceSwitch(idx));
         continue;
       }
@@ -194,13 +194,13 @@ export class BattleScene extends Phaser.Scene {
         const item = await this.bagMenu();
         if (item) return item;
       } else if (choice === 4) {
-        const idx = await this.pickPokemon(false, "Chọn Pokémon để đổi ra trận.");
+        const idx = await this.pickPokemon(false, "Chọn linh thú để đổi ra trận.");
         if (idx !== null) {
           if (this.data_.setup.playerParty[idx] === this.engine.playerMon) { await this.say(`${displayName(this.engine.playerMon)} đang chiến đấu rồi!`); continue; }
           return { type: "switch", index: idx };
         }
       } else if (choice === 5) {
-        if (this.engine.isTrainer) { await this.say("Không thể kết nối với Pokémon của Trainer khác!"); continue; }
+        if (this.engine.isTrainer) { await this.say("Không thể kết nối với linh thú của người nuôi khác!"); continue; }
         const bond = await this.bondMenu();
         if (bond) return bond;
       } else if (choice === 6) {
@@ -776,7 +776,7 @@ export class BattleScene extends Phaser.Scene {
     this.setMark(side, null, 0);
 
     if (side === "foe" && !this.engine.isTrainer && !this.foeTrainer && !sprite.visible) {
-      // Wild Pokémon slide in across the field
+      // Wild linh thú slide in across the field
       sprite.setVisible(true).setScale(scale).setX(-80).setTintFill(0x303030);
       await this.tween({ targets: sprite, x: home.x, duration: 650, ease: "Quad.easeOut" });
       sprite.clearTint();
@@ -1135,7 +1135,7 @@ export class BattleScene extends Phaser.Scene {
       const r = await this.choose(buttons, 1, 0, true, (i) => desc.setText(getItem(owned[i])!.desc));
       if (r === null) { this.clearUi(); return null; }
       const id = owned[r], item = getItem(id)!;
-      const target = await this.pickPokemon(false, `Dùng ${item.name} cho Pokémon nào?`);
+      const target = await this.pickPokemon(false, `Dùng ${item.name} cho linh thú nào?`);
       if (target !== null) { this.clearUi(); return { type: "item", itemId: id, target }; }
     }
   }
