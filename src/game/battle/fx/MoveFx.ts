@@ -494,7 +494,6 @@ export class MoveFx {
     shadowball: async (c) => { await this.dimBg(true,0.68); const o=this.orb(c.u.x,c.u.y,0x852bff,1.25); const core=this.glow(c.u.x,c.u.y,0x19002e,0.65,1); await this.travel([...o,core],c.u,c.t,620,95,0xb85cff); await this.burst(c.t,0x9b36ff,1.8,30); await this.crackle(c.t,0xb45cff); o.forEach(x=>x.destroy());core.destroy();await this.dimBg(false); },
     icebeam: async (c) => this.cinematicBeam(c,0x65dcff,440,430,1.65),
     hyperbeam: async (c) => this.cinematicBeam(c,0xffa52e,760,620,2.15),
-    psychic: async (c) => { await this.dimBg(true,0.66); await this.magicCircle(c.target,0xc04cff,1000); await this.burst(c.t,0xd14cff,1.7,26); await this.dimBg(false); },
     thunderbolt: async (c) => { await this.dimBg(true,0.62); for(let i=0;i<5;i++) await this.bolt(c.u,{x:c.t.x+rnd(-34,34),y:c.t.y+rnd(-38,30)},0xffef55); await this.burst(c.t,0xffe64d,1.7,26); await this.crackle(c.t,0xffef55); await this.dimBg(false); },
     flamethrower: async (c) => { await this.dimBg(true,0.52); const beam=this.glow(c.u.x,c.u.y,0xff6125,0.5,1); await this.tween({targets:beam,x:c.t.x,y:c.t.y,scale:1.45,alpha:0.1,duration:560});beam.destroy();await this.flameRise(c.t,1.8);await this.burst(c.t,0xff5b22,1.7,24);await this.dimBg(false); },
     solarbeam: async (c) => this.cinematicBeam(c,0x9dff58,720,570,1.95),
@@ -539,7 +538,7 @@ export class MoveFx {
     const rays=this.scene.add.graphics().setDepth(DEPTH+2).setBlendMode(ADD);
     for(let i=0;i<16;i++){const a=i*Math.PI/8,len=(35+(i%4)*18)*scale;rays.lineStyle(i%3===0?5:2,i%4===0?0xffffff:color,.85).lineBetween(t.x+Math.cos(a)*12,t.y+Math.sin(a)*12,t.x+Math.cos(a)*len,t.y+Math.sin(a)*len);}
     const core=this.glow(t.x,t.y,0xffffff,.25*scale,1);
-    cam.flash(90,col.r,col.g,col.b,false);cam.shake(190,.009*scale);
+    cam.flash(90,col.red,col.green,col.blue,false);cam.shake(190,.009*scale);
     await Promise.all([this.tween({targets:rays,alpha:0,scale:1.12,duration:330}),this.tween({targets:core,scale:1.3*scale,alpha:0,duration:260})]);
     rays.destroy();core.destroy();rings.forEach(r=>r.destroy());
   }
