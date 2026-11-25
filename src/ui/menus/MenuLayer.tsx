@@ -8,6 +8,7 @@ import { StartMenu } from "./StartMenu";
 import { StarterPicker } from "./StarterPicker";
 import { RedeemPanel, MoveLabPanel } from "./QARewardsPanel";
 import { GachaPanel } from "./GachaPanel";
+import { ExpeditionPanel } from "./ExpeditionPanel";
 
 /** React overlay on top of the Phaser canvas for all management screens. */
 export function MenuLayer() {
@@ -30,6 +31,7 @@ export function MenuLayer() {
     {panel === "redeem" && <RedeemPanel />}
     {panel === "moveLab" && <MoveLabPanel />}
     {panel === "gacha" && <GachaPanel />}
+    {panel === "expedition" && <ExpeditionPanel />}
     {notice && <div className="px-notice">{notice}</div>}
   </div>;
 }
