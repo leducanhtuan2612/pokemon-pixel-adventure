@@ -291,11 +291,13 @@ export function ensurePropTextures(scene: Phaser.Scene) {
   canvasTexture(scene, PROP.lamp, T, T, (ctx) => paintPattern(ctx, pat("lamp"), PAL.lamp, 0, 0));
   canvasTexture(scene, PROP.itemBall, T, T, (ctx) => {
     ctx.fillStyle = "rgba(20,50,25,0.3)"; ctx.beginPath(); ctx.ellipse(16, 26, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#202028"; ctx.beginPath(); ctx.arc(16, 17, 9, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#f8f8f8"; ctx.beginPath(); ctx.arc(16, 17, 7, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#e04040"; ctx.beginPath(); ctx.arc(16, 17, 7, Math.PI, 0); ctx.fill();
-    ctx.fillStyle = "#202028"; ctx.fillRect(9, 16, 14, 2);
-    ctx.fillStyle = "#f8f8f8"; ctx.fillRect(14, 15, 4, 4); ctx.fillStyle = "#ffb0b0"; ctx.fillRect(11, 12, 3, 2);
+    // Glowing bond crystal pickup (pixel facets: light left face, dark right face).
+    ctx.fillStyle = "rgba(140,220,255,0.35)"; ctx.beginPath(); ctx.arc(16, 15, 11, 0, Math.PI * 2); ctx.fill();
+    const facet = (color: string, pts: number[]) => { ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]); ctx.closePath(); ctx.fill(); };
+    facet("#183048", [16, 3, 25, 14, 16, 27, 7, 14]);
+    facet("#5ab8f0", [16, 5, 23, 14, 16, 25]);
+    facet("#c8f0ff", [16, 5, 9, 14, 16, 25]);
+    facet("#ffffff", [16, 5, 12, 12, 16, 14]);
   });
   canvasTexture(scene, PROP.bubble, 20, 22, (ctx) => {
     ctx.fillStyle = "#303040"; ctx.fillRect(0, 0, 20, 18); ctx.fillRect(6, 18, 6, 4);

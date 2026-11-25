@@ -1,6 +1,9 @@
 import Phaser from "phaser";
 import type { MoveData } from "../../data/moves";
 import { TYPE_COLORS, categoryOf } from "../../data/types";
+import { elementOf } from "../elements";
+import { Fx3D, type Fx3DHooks } from "./Fx3D";
+import { playUltimate } from "./Ultimates";
 
 type Pt = { x: number; y: number };
 type Img = Phaser.GameObjects.Image;
@@ -110,6 +113,47 @@ export function ensureFxTextures(scene: Phaser.Scene) {
       c.beginPath(); c.moveTo(0, -6); c.lineTo(4, 0); c.lineTo(0, 6); c.lineTo(-4, 0); c.closePath(); c.fill(); c.restore();
     }
   });
+  canvasTex(scene, "vfx-snowflake", 44, 44, (c) => {
+    c.translate(22, 22);
+    c.strokeStyle = "#ffffff";
+    c.lineCap = "round";
+    for (let i = 0; i < 6; i++) {
+      c.save();
+      c.rotate((i * Math.PI) / 3);
+      c.lineWidth = 2.5;
+      c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -18); c.stroke();
+      c.lineWidth = 1.6;
+      c.beginPath(); c.moveTo(0, -10); c.lineTo(-5, -14); c.moveTo(0, -10); c.lineTo(5, -14); c.stroke();
+      c.restore();
+    }
+    c.fillStyle = "#ffffff"; c.beginPath(); c.arc(0, 0, 3.5, 0, Math.PI * 2); c.fill();
+  });
+  canvasTex(scene, "vfx-star", 48, 48, (c) => {
+    c.translate(24, 24);
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, 22);
+    g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.5, "rgba(255,255,255,0.85)"); g.addColorStop(1, "rgba(255,255,255,0)");
+    c.fillStyle = g;
+    c.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const r = i % 2 === 0 ? 22 : 5, a = (i * Math.PI) / 4;
+      if (i === 0) c.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      else c.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    c.closePath(); c.fill();
+  });
+  canvasTex(scene, "vfx-slash", 140, 36, (c) => {
+    const g = c.createLinearGradient(0, 18, 140, 18);
+    g.addColorStop(0, "rgba(255,255,255,0)");
+    g.addColorStop(0.3, "rgba(255,255,255,0.9)");
+    g.addColorStop(0.65, "rgba(255,255,255,1)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(0, 18);
+    c.quadraticCurveTo(70, 2, 140, 18);
+    c.quadraticCurveTo(70, 34, 0, 18);
+    c.fill();
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -125,10 +169,13 @@ const DEPTH = 34;
  */
 export class MoveFx {
   private dim: Phaser.GameObjects.Rectangle;
+  /** Pseudo-3D toolkit: cone beams, helixes, perspective rings, cinematic camera. */
+  readonly x3: Fx3D;
 
-  constructor(private scene: Phaser.Scene) {
+  constructor(private scene: Phaser.Scene, hooks: Fx3DHooks) {
     ensureFxTextures(scene);
-    this.dim = scene.add.rectangle(320, 144, 640, 288, 0x0a0618, 0).setDepth(4);
+    this.dim = scene.add.rectangle(320, 144, 1280, 576, 0x0a0618, 0).setDepth(4);
+    this.x3 = new Fx3D(scene, hooks, DEPTH);
   }
 
   /** Plays the effect for `move`; `user`/`target` are the battle sprites. */
@@ -137,19 +184,50 @@ export class MoveFx {
     const u = this.center(user), t = this.center(target), dir = side === "player" ? 1 : -1;
     const damaging = move.power > 0 || move.fixedDamage !== undefined || !!move.ohko;
     const ctx = { move, col, u, t, user, target, dir };
+    if (move.id.startsWith("ult-")) {
+      await this.dimBg(true, 0.82);
+      this.master = true;
+      try { await playUltimate(this.x3, this.scene, ctx, elementOf(move) ?? "none"); }
+      finally { this.master = false; await this.dimBg(false); }
+      return;
+    }
     // Darken the stage so additive light pops, like an anime move cut-in.
-    await this.dimBg(true, damaging ? (move.power >= 70 ? 0.6 : 0.48) : 0.32);
+    await this.dimBg(true, damaging ? (move.power >= 75 ? 0.62 : 0.46) : 0.34);
+    if (damaging && (move.power >= 75 || move.ohko)) void this.cutIn(move.name, col, side);
     this.master = true;
     try {
       const sig = this.signatures[move.id];
       if (sig) await sig.call(this, ctx);
       else if (!damaging) await this.statusGeneric(ctx);
       else await this.typeGeneric(ctx);
-      if (damaging) await this.cinematicImpact(target, t, col, Math.max(0.85, Math.min(1.65, move.power / 75)));
+      if (damaging) await this.cinematicImpact(target, t, col, Math.max(0.85, Math.min(1.7, move.power / 72)));
     } finally {
       this.master = false;
       await this.dimBg(false);
     }
+  }
+
+  /** Sleek anime move banner that sweeps across the edge on high-power moves. */
+  private async cutIn(name: string, color: number, side: "player" | "foe") {
+    const y = side === "player" ? 54 : 236;
+    const fromX = side === "player" ? -260 : 900;
+    const midX = side === "player" ? 185 : 455;
+    const toX = side === "player" ? 780 : -140;
+    const box = this.scene.add.container(fromX, y).setDepth(DEPTH + 10);
+    const g = this.scene.add.graphics();
+    g.fillStyle(0x0b101a, 0.86).fillRoundedRect(-170, -17, 340, 34, 6);
+    g.fillStyle(color, 0.95).fillRect(-170, -17, 8, 34);
+    g.fillStyle(color, 0.35).fillRect(-162, 13, 332, 4);
+    g.lineStyle(1.5, 0xffffff, 0.45).strokeRoundedRect(-170, -17, 340, 34, 6);
+    const label = this.scene.add.text(0, -1, name.toUpperCase(), {
+      fontFamily: "VT323, monospace", fontSize: "23px", color: "#ffffff",
+      shadow: { offsetX: 2, offsetY: 2, color: "#000000", fill: true },
+    }).setOrigin(0.5).setResolution(2);
+    box.add([g, label]);
+    await this.tween({ targets: box, x: midX, duration: 150, ease: "Cubic.easeOut" });
+    await this.wait(220);
+    await this.tween({ targets: box, x: toX, alpha: 0, duration: 170, ease: "Cubic.easeIn" });
+    box.destroy();
   }
 
   /* ---------------- building blocks ---------------- */
@@ -217,9 +295,10 @@ export class MoveFx {
   private shake(ms = 180, k = 0.008) { this.scene.cameras.main.shake(ms, k); }
 
   private async magicCircle(s: Img, color: number, ms = 900) {
-    const c = this.scene.add.image(s.x, s.y - 6, "vfx-circle").setTint(color).setBlendMode(ADD).setDepth(3).setScale(0.1, 0.035).setAlpha(0.95);
-    const g = this.glow(s.x, s.y - 6, color, 0.2, 0.5).setDepth(3).setScale(1.4, 0.4);
-    this.scene.tweens.add({ targets: c, angle: 180, duration: ms + 400 });
+    const disc = this.scene.add.image(0, 0, "vfx-circle").setTint(color).setBlendMode(ADD).setAlpha(0.95);
+    const c = this.scene.add.container(s.x, s.y - 6, [disc]).setDepth(4.8).setScale(0.1, 0.035);
+    const g = this.glow(s.x, s.y - 6, color, 0.2, 0.5).setDepth(4.8).setScale(1.4, 0.4);
+    this.scene.tweens.add({ targets: disc, angle: 180, duration: ms + 400 });
     await this.tween({ targets: c, scaleX: s === undefined ? 1 : Math.max(0.7, s.displayWidth / 140), scaleY: Math.max(0.24, s.displayWidth / 520), duration: 260, ease: "Back.easeOut" });
     // rising motes
     for (let i = 0; i < 14; i++) {
@@ -264,16 +343,25 @@ export class MoveFx {
     const g = this.scene.add.graphics().setDepth(DEPTH).setBlendMode(ADD);
     const pts: Phaser.Math.Vector2[] = [];
     const n = 9;
+    const nx = -(to.y - from.y), ny = to.x - from.x, len = Math.hypot(nx, ny) || 1;
     for (let i = 0; i <= n; i++) {
       const t = i / n;
-      const jitter = i === 0 || i === n ? 0 : rnd(-22, 22);
-      const nx = -(to.y - from.y), ny = to.x - from.x, len = Math.hypot(nx, ny) || 1;
+      const jitter = i === 0 || i === n ? 0 : rnd(-24, 24);
       pts.push(new Phaser.Math.Vector2(Phaser.Math.Linear(from.x, to.x, t) + (nx / len) * jitter, Phaser.Math.Linear(from.y, to.y, t) + (ny / len) * jitter));
     }
-    g.lineStyle(18 * width, color, 0.25).strokePoints(pts);
-    g.lineStyle(9 * width, color, 0.7).strokePoints(pts);
-    g.lineStyle(3 * width, 0xffffff, 1).strokePoints(pts);
-    await this.wait(80);
+    const drawLine = (arr: Phaser.Math.Vector2[], w: number) => {
+      g.lineStyle(18 * w, color, 0.25).strokePoints(arr);
+      g.lineStyle(9 * w, color, 0.72).strokePoints(arr);
+      g.lineStyle(3 * w, 0xffffff, 1).strokePoints(arr);
+    };
+    drawLine(pts, width);
+    // Forked secondary branches
+    for (let b = 0; b < 2; b++) {
+      const anchor = pts[rnd(2, n - 2)];
+      const branch = [anchor, new Phaser.Math.Vector2(anchor.x + rnd(-34, 34), anchor.y + rnd(-26, 26)), new Phaser.Math.Vector2(anchor.x + rnd(-56, 56), anchor.y + rnd(-42, 42))];
+      drawLine(branch, width * 0.45);
+    }
+    await this.wait(75);
     await this.tween({ targets: g, alpha: 0, duration: 140 });
     g.destroy();
   }
@@ -303,28 +391,30 @@ export class MoveFx {
 
   /* ---------------- signature effects ---------------- */
 
-  /* Cinematic elemental beam: charge glyphs, converging particles, beam flash and impact. */
+  /* Cinematic elemental beam: charge glyphs, converging particles, beam flash, traveling rings and impact. */
   private async cinematicBeam(c: Ctx, color: number, chargeMs = 560, beamMs = 480, impactScale = 1.7) {
-    const cam = this.scene.cameras.main;
-    const glyph = this.scene.add.image(c.u.x,c.u.y,"vfx-circle").setTint(color).setBlendMode(ADD).setDepth(DEPTH-2).setScale(0.08);
-    const targetGlyph = this.scene.add.image(c.t.x,c.t.y,"vfx-circle").setTint(color).setBlendMode(ADD).setDepth(DEPTH-2).setScale(0.06).setAlpha(0);
-    const orb = this.orb(c.u.x,c.u.y,color,0.85);
-    const rings = [0,1,2].map(i=>this.scene.add.image(c.u.x,c.u.y,"vfx-ring").setTint(i===1?0xffffff:color).setBlendMode(ADD).setDepth(DEPTH-1).setScale(0.15+i*0.07));
-    this.scene.tweens.add({targets:glyph,scale:0.78,angle:210,duration:chargeMs,ease:"Cubic.easeOut"});
-    this.scene.tweens.add({targets:targetGlyph,scale:0.48,alpha:0.8,angle:-180,duration:chargeMs,ease:"Cubic.easeOut"});
-    rings.forEach((r,i)=>this.scene.tweens.add({targets:r,scale:0.8+i*0.25,angle:i%2?260:-260,alpha:0.3,duration:chargeMs,delay:i*45}));
-    const particles=Array.from({length:20},(_,i)=>{const a=i*Math.PI*2/20;const p=this.glow(c.u.x+Math.cos(a)*90,c.u.y+Math.sin(a)*90,color,0.12,0.9,"vfx-core");return this.tween({targets:p,x:c.u.x,y:c.u.y,scale:0.42,alpha:0,duration:chargeMs,delay:i*9}).then(()=>p.destroy());});
-    await this.wait(chargeMs);cam.flash(120,210,175,255,false);
-    const beam=this.scene.add.graphics().setDepth(DEPTH+2).setBlendMode(ADD);
-    beam.lineStyle(70,color,0.25).lineBetween(c.u.x,c.u.y,c.t.x,c.t.y);
-    beam.lineStyle(34,color,0.7).lineBetween(c.u.x,c.u.y,c.t.x,c.t.y);
-    beam.lineStyle(12,0xffffff,1).lineBetween(c.u.x,c.u.y,c.t.x,c.t.y);
-    const core=this.glow((c.u.x+c.t.x)/2,(c.u.y+c.t.y)/2,color,0.35,1);
-    await Promise.all([this.tween({targets:beam,alpha:0,duration:beamMs,ease:"Cubic.easeOut"}),this.tween({targets:core,scale:1.45,alpha:0,duration:beamMs})]);beam.destroy();core.destroy();
-    cam.shake(280,0.016);cam.flash(210,255,255,255,false);
-    await Promise.all([this.burst(c.t,color,impactScale,30),this.burst(c.t,0xffffff,impactScale*0.55,20),this.crackle(c.t,color),this.tween({targets:c.target,scaleX:c.target.scaleX*0.82,scaleY:c.target.scaleY*0.82,angle:c.dir*6,duration:90,yoyo:true,repeat:2})]);
-    [glyph,targetGlyph,...orb,...rings].forEach(o=>o.destroy());await Promise.all(particles);
+    const x = this.x3;
+    const stopSigil = x.sigil({ x: c.user.x, y: c.user.y - 4 }, color, Math.max(0.8, c.user.displayWidth / 140));
+    await x.focus(c.u, 1.22, 200);
+    const charged = await x.charge(c.u, color, chargeMs, 26, 110);
+    x.flash(90, 225, 235, 255);
+    await x.focus({ x: (c.u.x + c.t.x) / 2, y: (c.u.y + c.t.y) / 2 }, 1.06, 140);
+    charged.forEach((o) => o.destroy());
+    await x.coneBeam(c.u, c.t, color, { w0: 14, w1: 70 + impactScale * 30, ms: beamMs + 220, rings: 4 });
+    x.punch(1.1);
+    await Promise.all([
+      this.burst(c.t, color, impactScale, 28),
+      this.burst(c.t, 0xffffff, impactScale * 0.55, 18),
+      x.groundWave({ x: c.target.x, y: c.target.y - 4 }, color, impactScale * 0.7),
+      this.tween({ targets: c.target, scaleX: c.target.scaleX * 0.86, scaleY: c.target.scaleY * 0.86, angle: c.dir * 6, duration: 90, yoyo: true, repeat: 2 }),
+    ]);
+    c.target.setAngle(0);
+    await stopSigil();
+    await x.resetCam(240);
   }
+
+  /** Ice crystals erupting around the target's feet. */
+  private iceCrystals(t: Pt, count: number) { return this.x3.iceCrystals(t, count); }
 
   private signatures: Record<string, (c: Ctx) => Promise<void>> = {
     tackle: async (c) => { void this.afterimages(c.user, c.dir); await this.lunge(c.user, c.dir, 44); this.shake(); await this.burst(c.t, 0xffffff, 1.1); },
@@ -491,41 +581,132 @@ export class MoveFx {
     },
     helpinghand: async (c) => this.magicCircle(c.user, 0xf8d860, 800),
     mudsport: async (c) => this.powder(c.u, [0x987048, 0xc8a070], 16),
-    shadowball: async (c) => { await this.dimBg(true,0.68); const o=this.orb(c.u.x,c.u.y,0x852bff,1.25); const core=this.glow(c.u.x,c.u.y,0x19002e,0.65,1); await this.travel([...o,core],c.u,c.t,620,95,0xb85cff); await this.burst(c.t,0x9b36ff,1.8,30); await this.crackle(c.t,0xb45cff); o.forEach(x=>x.destroy());core.destroy();await this.dimBg(false); },
-    icebeam: async (c) => this.cinematicBeam(c,0x65dcff,440,430,1.65),
-    hyperbeam: async (c) => this.cinematicBeam(c,0xffa52e,760,620,2.15),
-    thunderbolt: async (c) => { await this.dimBg(true,0.62); for(let i=0;i<5;i++) await this.bolt(c.u,{x:c.t.x+rnd(-34,34),y:c.t.y+rnd(-38,30)},0xffef55); await this.burst(c.t,0xffe64d,1.7,26); await this.crackle(c.t,0xffef55); await this.dimBg(false); },
-    flamethrower: async (c) => { await this.dimBg(true,0.52); const beam=this.glow(c.u.x,c.u.y,0xff6125,0.5,1); await this.tween({targets:beam,x:c.t.x,y:c.t.y,scale:1.45,alpha:0.1,duration:560});beam.destroy();await this.flameRise(c.t,1.8);await this.burst(c.t,0xff5b22,1.7,24);await this.dimBg(false); },
-    solarbeam: async (c) => this.cinematicBeam(c,0x9dff58,720,570,1.95),
-    blizzard: async (c) => { await this.cinematicBeam(c,0x9cecff,600,520,1.8); await this.powder(c.t,[0xffffff,0x92eaff,0xceeaff],48); },
-    surf: async (c) => { await this.dimBg(true,0.5); await this.splash(c.t,0x44bfff); const w=this.scene.add.image(c.u.x,c.u.y,"vfx-crescent").setTint(0x54cfff).setBlendMode(ADD).setDepth(DEPTH).setAngle(90).setScale(0.45,0.8); await this.tween({targets:w,x:c.t.x,y:c.t.y,scaleX:2.3,scaleY:1.5,alpha:0,duration:620});w.destroy();await this.burst(c.t,0x54cfff,1.8,26);await this.dimBg(false); },
-    wingattack: async (c) => { await this.speedLines(c.u,c.t,0xdaf4ff); await this.featherStorm(c.u,c.t,0xeafaff,12); await this.lunge(c.user,c.dir,48); await this.claws(c.t,0xffffff,2,"vfx-crescent",c.dir>0?135:315); await this.impactSeal(c.t,0x9cecff,1.25); },
-    aerialace: async (c) => { await this.dimBg(true,0.62); void this.afterimages(c.user,c.dir); await this.speedLines(c.u,c.t,0x9cecff); await this.lunge(c.user,c.dir,64); await this.claws(c.t,0xffffff,3,"vfx-crescent",c.dir>0?135:315); await this.claws(c.t,0x9cecff,2,"vfx-crescent",c.dir>0?45:225); await this.impactSeal(c.t,0x9cecff,1.55); await this.dimBg(false); },
-    drillpeck: async (c) => { await this.dimBg(true,0.52); const ring=this.scene.add.image(c.u.x,c.u.y,"vfx-ring").setTint(0xffe9a0).setBlendMode(ADD).setDepth(DEPTH).setScale(0.2); await this.tween({targets:ring,angle:720,scale:1.1,x:c.t.x,y:c.t.y,duration:420}); ring.destroy(); await this.speedLines(c.u,c.t,0xffe9a0); await this.lunge(c.user,c.dir,54); await this.claws(c.t,0xffffff,4,"vfx-needle",c.dir>0?-18:198); await this.impactSeal(c.t,0xffd56a,1.35); await this.dimBg(false); },
-    thunder: async (c) => { await this.dimBg(true,0.78); const charge=this.orb(c.u.x,c.u.y,0xffe84a,1.25); const rings=[0,1,2].map(i=>this.scene.add.image(c.u.x,c.u.y,"vfx-ring").setTint(i===1?0xffffff:0xffd82d).setBlendMode(ADD).setDepth(DEPTH).setScale(0.2+i*0.08)); rings.forEach((r,i)=>this.scene.tweens.add({targets:r,angle:360*(i%2? -1:1),scale:1.15+i*.18,alpha:.45,duration:520,delay:i*65})); await this.wait(560); this.scene.cameras.main.flash(120,255,248,170,false); await Promise.all(Array.from({length:7},(_,i)=>this.bolt({x:c.t.x+(i-3)*18,y:c.t.y-150-rnd(0,70)},{x:c.t.x+rnd(-24,24),y:c.t.y+rnd(-18,24)},0xffe52e,1.35))); await this.impactSeal(c.t,0xffe52e,1.9); await this.crackle(c.t,0xfff7a0); charge.forEach(o=>o.destroy());rings.forEach(o=>o.destroy());await this.dimBg(false); },
-    headbutt: async (c) => { void this.afterimages(c.user,c.dir); await this.lunge(c.user,c.dir,54); this.scene.cameras.main.flash(75,255,245,205,false); await this.impactSeal(c.t,0xffe2a0,1.45); await this.burst(c.t,0xffffff,1.25,18); },
-    earthquake: async (c) => { await this.dimBg(true,0.48); await this.quake(c.t); await this.impactSeal(c.t,0xc49a68,1.55); await this.dimBg(false); },
-    psychic: async (c) => { await this.dimBg(true,0.72); await this.magicCircle(c.target,0xc080ff,1180); const rings=[0,1,2].map(i=>this.scene.add.image(c.t.x,c.t.y,"vfx-ring").setTint(i===1?0xffffff:0xb46cff).setBlendMode(ADD).setDepth(DEPTH).setScale(.15)); await Promise.all(rings.map((r,i)=>this.tween({targets:r,scale:1.8+i*.25,angle:i%2?220:-220,alpha:0,duration:560,delay:i*80})));rings.forEach(r=>r.destroy());await this.impactSeal(c.t,0xb46cff,1.65);await this.dimBg(false); },
-    dragonclaw: async (c) => { await this.dimBg(true,0.42); await this.claws(c.t,0x68c8ff,3,"vfx-crescent",c.dir>0?135:315); await this.burst(c.t,0x8cecff,1.35,18); await this.dimBg(false); },
-    dragonpulse: async (c) => this.cinematicBeam(c,0x4c9cff,520,460,1.75),
-    aurasphere: async (c) => { const o=this.orb(c.u.x,c.u.y,0x5bbcff,0.95); await this.travel(o,c.u,c.t,520,45,0xb8eaff); await this.burst(c.t,0x72d8ff,1.65,26); o.forEach(x=>x.destroy()); },
-    darkpulse: async (c) => { await this.dimBg(true,0.62); await this.soundWaves(c.u,c.t,0x9c42e8,5); await this.burst(c.t,0x6620b8,1.7,28); await this.dimBg(false); },
-    shadowclaw: async (c) => { await this.dimBg(true,0.55); await this.claws(c.t,0x9b5bff,4,"vfx-crescent",c.dir>0?135:315); await this.burst(c.t,0x5b2b9e,1.25,20); await this.dimBg(false); },
-    airslash: async (c) => { await this.speedLines(c.u,c.t,0xd8f4ff); await this.claws(c.t,0xffffff,2,"vfx-crescent",c.dir>0?145:325); await this.burst(c.t,0x9beaff,1.3,18); },
-    irontail: async (c) => { await this.lunge(c.user,c.dir,34); await this.claws(c.t,0xc8e8ff,2,"vfx-crescent",c.dir>0?100:280); this.shake(240,0.012); await this.burst(c.t,0xffffff,1.4,22); },
-    leafblade: async (c) => { await this.lunge(c.user,c.dir,38); await this.claws(c.t,0x68e050,3,"vfx-crescent",c.dir>0?135:315); await this.powder(c.t,[0x60d850,0xb8f888],18); },
-    hydropump: async (c) => this.cinematicBeam(c,0x3bbdff,450,480,1.9),
-    fireblast: async (c) => { await this.dimBg(true,0.5); await this.cinematicBeam(c,0xff6728,400,430,1.8); await this.flameRise(c.t,2.1); await this.dimBg(false); },
-    rockblast: async (c) => { for(let i=0;i<5;i++) await this.rocks({x:c.t.x+rnd(-26,26),y:c.t.y+rnd(-24,24)},1); },
-    brickbreak: async (c) => { await this.lunge(c.user,c.dir,42); await this.claws(c.t,0xffd18a,2); this.shake(250,0.014); await this.burst(c.t,0xffd18a,1.45,22); },
-    crosschop: async (c) => { await this.lunge(c.user,c.dir,42); await this.claws(c.t,0xffe0b0,2,"vfx-crescent",45); await this.claws(c.t,0xffe0b0,2,"vfx-crescent",135); this.shake(250,0.014); },
-    bodyslam: async (c) => { await this.lunge(c.user,c.dir,52); this.shake(280,0.016); await this.burst(c.t,0xffe8b8,1.6,24); },
-    nightshade: async (c) => { await this.dimBg(true,0.72); await this.travel(this.orb(c.u.x,c.u.y,0x542080,0.9),c.u,c.t,500,65,0x9c68df); await this.burst(c.t,0x6420a8,1.5,24); await this.dimBg(false); },
-    meteormash: async (c) => { await this.lunge(c.user,c.dir,42); await this.claws(c.t,0xb8d8ff,3); await this.burst(c.t,0xeff8ff,1.6,24); },
-    extrasensory: async (c) => { await this.dimBg(true,0.55); await this.magicCircle(c.target,0x8c6cff,780); await this.burst(c.t,0xbaa8ff,1.45,22); await this.dimBg(false); },
-    perishsong: async (c) => { await this.dimBg(true,0.6); await this.soundWaves(c.u,c.t,0xb8a8ff,6); await this.burst(c.t,0x7868d8,1.2,18); await this.dimBg(false); },
-    waterfall: async (c) => { await this.splash(c.t,0x48aaff); await this.lunge(c.user,c.dir,45); await this.burst(c.t,0x70d8ff,1.5,24); },
-    meteorbeam: async (c) => this.cinematicBeam(c,0x8fcaff,650,560,1.9),
+    shadowball: async (c) => {
+      await this.dimBg(true, 0.72);
+      const o = this.orb(c.u.x, c.u.y, 0x852bff, 1.35);
+      const core = this.glow(c.u.x, c.u.y, 0x160028, 0.7, 1);
+      const ring = this.scene.add.image(c.u.x, c.u.y, "vfx-ring").setTint(0xb85cff).setBlendMode(ADD).setDepth(DEPTH - 1).setScale(0.28);
+      this.scene.tweens.add({ targets: ring, angle: 360, scale: 0.48, duration: 580 });
+      await this.travel([...o, core, ring], c.u, c.t, 560, 80, 0x9b36ff);
+      await Promise.all([this.burst(c.t, 0x9b36ff, 1.85, 28), this.crackle(c.t, 0xc070ff)]);
+      [...o, core, ring].forEach((x) => x.destroy());
+      await this.dimBg(false);
+    },
+    icebeam: async (c) => {
+      await this.cinematicBeam(c, 0x65dcff, 440, 440, 1.65);
+      await this.iceCrystals(c.t, 12);
+    },
+    hyperbeam: async (c) => this.cinematicBeam(c, 0xffa52e, 740, 600, 2.15),
+    thunderbolt: async (c) => {
+      await this.dimBg(true, 0.65);
+      for (let i = 0; i < 4; i++) {
+        this.scene.cameras.main.flash(60, 255, 248, 175, false);
+        await this.bolt(c.u, { x: c.t.x + rnd(-28, 28), y: c.t.y + rnd(-30, 24) }, 0xffef55, 1.15);
+      }
+      await Promise.all([this.burst(c.t, 0xffe64d, 1.7, 26), this.crackle(c.t, 0xffef55)]);
+      await this.dimBg(false);
+    },
+    flamethrower: async (c) => {
+      await this.dimBg(true, 0.6);
+      const x = this.x3;
+      await x.focus(c.u, 1.2, 180);
+      void x.focus({ x: (c.u.x + c.t.x) / 2, y: (c.u.y + c.t.y) / 2 }, 1.08, 400);
+      await x.flameStream(c.u, c.t, 900, 1.1);
+      await Promise.all([this.flameRise(c.t, 1.8), this.burst(c.t, 0xff5b22, 1.6, 24), x.groundWave({ x: c.target.x, y: c.target.y - 4 }, 0xff7030, 0.9)]);
+      await x.resetCam(220);
+      await this.dimBg(false);
+    },
+    solarbeam: async (c) => this.cinematicBeam(c, 0x9dff58, 700, 560, 1.95),
+    blizzard: async (c) => {
+      await this.cinematicBeam(c, 0x9cecff, 540, 500, 1.8);
+      await Promise.all([this.iceCrystals(c.t, 18), this.powder(c.t, [0xffffff, 0x92eaff, 0xceeaff], 36)]);
+    },
+    surf: async (c) => { await this.dimBg(true, 0.5); await this.splash(c.t, 0x44bfff); const w = this.scene.add.image(c.u.x, c.u.y, "vfx-crescent").setTint(0x54cfff).setBlendMode(ADD).setDepth(DEPTH).setAngle(90).setScale(0.45, 0.8); await this.tween({ targets: w, x: c.t.x, y: c.t.y, scaleX: 2.3, scaleY: 1.5, alpha: 0, duration: 620 }); w.destroy(); await this.burst(c.t, 0x54cfff, 1.8, 26); await this.dimBg(false); },
+    wingattack: async (c) => { await this.speedLines(c.u, c.t, 0xdaf4ff); await this.featherStorm(c.u, c.t, 0xeafaff, 12); await this.lunge(c.user, c.dir, 48); await this.claws(c.t, 0xffffff, 2, "vfx-crescent", c.dir > 0 ? 135 : 315); await this.impactSeal(c.t, 0x9cecff, 1.25); },
+    aerialace: async (c) => { await this.dimBg(true, 0.62); void this.afterimages(c.user, c.dir); await this.speedLines(c.u, c.t, 0x9cecff); await this.lunge(c.user, c.dir, 64); await this.claws(c.t, 0xffffff, 3, "vfx-slash", c.dir > 0 ? 135 : 315); await this.claws(c.t, 0x9cecff, 2, "vfx-slash", c.dir > 0 ? 45 : 225); await this.impactSeal(c.t, 0x9cecff, 1.55); await this.dimBg(false); },
+    drillpeck: async (c) => { await this.dimBg(true, 0.52); const ring = this.scene.add.image(c.u.x, c.u.y, "vfx-ring").setTint(0xffe9a0).setBlendMode(ADD).setDepth(DEPTH).setScale(0.2); await this.tween({ targets: ring, angle: 720, scale: 1.1, x: c.t.x, y: c.t.y, duration: 420 }); ring.destroy(); await this.speedLines(c.u, c.t, 0xffe9a0); await this.lunge(c.user, c.dir, 54); await this.claws(c.t, 0xffffff, 4, "vfx-needle", c.dir > 0 ? -18 : 198); await this.impactSeal(c.t, 0xffd56a, 1.35); await this.dimBg(false); },
+    thunder: async (c) => { await this.dimBg(true, 0.78); const charge = this.orb(c.u.x, c.u.y, 0xffe84a, 1.25); const rings = [0, 1, 2].map((i) => this.scene.add.image(c.u.x, c.u.y, "vfx-ring").setTint(i === 1 ? 0xffffff : 0xffd82d).setBlendMode(ADD).setDepth(DEPTH).setScale(0.2 + i * 0.08)); rings.forEach((r, i) => this.scene.tweens.add({ targets: r, angle: 360 * (i % 2 ? -1 : 1), scale: 1.15 + i * .18, alpha: .45, duration: 520, delay: i * 65 })); await this.wait(560); this.scene.cameras.main.flash(120, 255, 248, 170, false); await Promise.all(Array.from({ length: 7 }, (_, i) => this.bolt({ x: c.t.x + (i - 3) * 18, y: c.t.y - 150 - rnd(0, 70) }, { x: c.t.x + rnd(-24, 24), y: c.t.y + rnd(-18, 24) }, 0xffe52e, 1.35))); await this.impactSeal(c.t, 0xffe52e, 1.9); await this.crackle(c.t, 0xfff7a0); charge.forEach((o) => o.destroy()); rings.forEach((o) => o.destroy()); await this.dimBg(false); },
+    headbutt: async (c) => { void this.afterimages(c.user, c.dir); await this.lunge(c.user, c.dir, 54); this.scene.cameras.main.flash(75, 255, 245, 205, false); await this.impactSeal(c.t, 0xffe2a0, 1.45); await this.burst(c.t, 0xffffff, 1.25, 18); },
+    earthquake: async (c) => { await this.dimBg(true, 0.48); await this.quake(c.t); await this.impactSeal(c.t, 0xc49a68, 1.55); await this.dimBg(false); },
+    psychic: async (c) => {
+      await this.dimBg(true, 0.72);
+      void this.magicCircle(c.target, 0xc080ff, 1100);
+      const baseY = c.target.y;
+      await this.tween({ targets: c.target, y: baseY - 22, duration: 360, ease: "Sine.easeOut" });
+      const rings = [0, 1, 2].map((i) => this.scene.add.image(c.t.x, c.t.y, "vfx-ring").setTint(i === 1 ? 0xffffff : 0xb46cff).setBlendMode(ADD).setDepth(DEPTH).setScale(0.15));
+      await Promise.all([
+        ...rings.map((r, i) => this.tween({ targets: r, scale: 1.85 + i * 0.28, angle: i % 2 ? 220 : -220, alpha: 0, duration: 520, delay: i * 75 })),
+        this.tween({ targets: c.target, y: baseY, duration: 180, ease: "Quad.easeIn" }),
+      ]);
+      rings.forEach((r) => r.destroy());
+      await this.impactSeal(c.t, 0xb46cff, 1.65);
+      await this.dimBg(false);
+    },
+    dragonclaw: async (c) => { await this.dimBg(true, 0.46); await this.lunge(c.user, c.dir, 36); await this.claws(c.t, 0x68c8ff, 3, "vfx-slash", c.dir > 0 ? 135 : 315); await this.burst(c.t, 0x8cecff, 1.4, 20); await this.dimBg(false); },
+    dragonpulse: async (c) => this.cinematicBeam(c, 0x4c9cff, 520, 460, 1.75),
+    aurasphere: async (c) => { const o = this.orb(c.u.x, c.u.y, 0x5bbcff, 1.05); await this.travel(o, c.u, c.t, 500, 45, 0xb8eaff); await this.burst(c.t, 0x72d8ff, 1.7, 26); o.forEach((x) => x.destroy()); },
+    darkpulse: async (c) => { await this.dimBg(true, 0.62); await this.soundWaves(c.u, c.t, 0x9c42e8, 5); await this.burst(c.t, 0x6620b8, 1.7, 28); await this.dimBg(false); },
+    shadowclaw: async (c) => { await this.dimBg(true, 0.58); await this.lunge(c.user, c.dir, 32); await Promise.all([this.claws(c.t, 0x9b5bff, 2, "vfx-slash", 45), this.claws(c.t, 0xd8a8ff, 2, "vfx-slash", 135)]); await this.burst(c.t, 0x5b2b9e, 1.35, 22); await this.dimBg(false); },
+    airslash: async (c) => { await this.speedLines(c.u, c.t, 0xd8f4ff); await this.claws(c.t, 0xffffff, 2, "vfx-slash", c.dir > 0 ? 145 : 325); await this.burst(c.t, 0x9beaff, 1.35, 18); },
+    irontail: async (c) => { await this.lunge(c.user, c.dir, 34); await this.claws(c.t, 0xc8e8ff, 2, "vfx-slash", c.dir > 0 ? 100 : 280); this.shake(240, 0.012); await this.burst(c.t, 0xffffff, 1.4, 22); },
+    leafblade: async (c) => { await this.lunge(c.user, c.dir, 38); await Promise.all([this.claws(c.t, 0x68e050, 3, "vfx-slash", c.dir > 0 ? 135 : 315), this.powder(c.t, [0x60d850, 0xb8f888], 18)]); },
+    hydropump: async (c) => this.cinematicBeam(c, 0x3bbdff, 450, 480, 1.9),
+    fireblast: async (c) => {
+      await this.dimBg(true, 0.62);
+      const x = this.x3;
+      await x.focus(c.u, 1.2, 180);
+      const charged = await x.charge(c.u, 0xff7a2a, 420, 20, 90);
+      charged.forEach((o) => o.destroy());
+      void x.focus(c.t, 1.25, 380);
+      await x.flameStream(c.u, c.t, 420, 1.3);
+      x.punch(1.2);
+      await Promise.all([x.fireStar(c.t, 1.5), x.groundWave({ x: c.target.x, y: c.target.y - 4 }, 0xff5a1a, 1.2)]);
+      await this.flameRise(c.t, 2.1);
+      await x.resetCam(240);
+      await this.dimBg(false);
+    },
+    rockblast: async (c) => { for (let i = 0; i < 5; i++) await this.rocks({ x: c.t.x + rnd(-26, 26), y: c.t.y + rnd(-24, 24) }, 1); },
+    brickbreak: async (c) => { await this.lunge(c.user, c.dir, 42); await this.claws(c.t, 0xffd18a, 2, "vfx-slash", 90); this.shake(250, 0.014); await this.burst(c.t, 0xffd18a, 1.45, 22); },
+    crosschop: async (c) => { await this.lunge(c.user, c.dir, 42); await Promise.all([this.claws(c.t, 0xffe0b0, 2, "vfx-slash", 45), this.claws(c.t, 0xffe0b0, 2, "vfx-slash", 135)]); this.shake(250, 0.014); },
+    bodyslam: async (c) => { await this.lunge(c.user, c.dir, 52); this.shake(280, 0.016); await this.burst(c.t, 0xffe8b8, 1.6, 24); },
+    nightshade: async (c) => { await this.dimBg(true, 0.72); const o = this.orb(c.u.x, c.u.y, 0x542080, 0.9); await this.travel(o, c.u, c.t, 500, 65, 0x9c68df); o.forEach((x) => x.destroy()); await this.burst(c.t, 0x6420a8, 1.5, 24); await this.dimBg(false); },
+    meteormash: async (c) => { await this.lunge(c.user, c.dir, 42); await this.claws(c.t, 0xb8d8ff, 3, "vfx-slash", 135); await this.burst(c.t, 0xeff8ff, 1.6, 24); },
+    extrasensory: async (c) => { await this.dimBg(true, 0.55); await this.magicCircle(c.target, 0x8c6cff, 780); await this.burst(c.t, 0xbaa8ff, 1.45, 22); await this.dimBg(false); },
+    perishsong: async (c) => { await this.dimBg(true, 0.6); await this.soundWaves(c.u, c.t, 0xb8a8ff, 6); await this.burst(c.t, 0x7868d8, 1.2, 18); await this.dimBg(false); },
+    waterfall: async (c) => { await this.splash(c.t, 0x48aaff); await this.lunge(c.user, c.dir, 45); await this.burst(c.t, 0x70d8ff, 1.5, 24); },
+    meteorbeam: async (c) => this.cinematicBeam(c, 0x8fcaff, 650, 560, 1.9),
+    slash: async (c) => { await this.lunge(c.user, c.dir, 36); await this.claws(c.t, 0xffffff, 3, "vfx-slash", c.dir > 0 ? 135 : 315); },
+    cut: async (c) => { await this.lunge(c.user, c.dir, 34); await this.claws(c.t, 0xe8f4ff, 2, "vfx-slash", 135); },
+    crunch: async (c) => { await this.lunge(c.user, c.dir, 34); await this.jaws(c.t, 0x9050d0); this.shake(240, 0.014); },
+    swift: async (c) => {
+      const stars = [0, 1, 2, 3, 4].map(async (i) => {
+        await this.wait(i * 55);
+        const s = this.scene.add.image(c.u.x, c.u.y, "vfx-star").setTint(i % 2 ? 0xfff080 : 0xffffff).setBlendMode(ADD).setDepth(DEPTH + 1).setScale(0.75);
+        await this.travel([s], c.u, { x: c.t.x + rnd(-16, 16), y: c.t.y + rnd(-16, 16) }, 340, (i - 2) * 26, 0xffe870);
+        s.destroy();
+      });
+      await Promise.all(stars);
+      await this.burst(c.t, 0xffe870, 1.2, 14);
+    },
+    swordsdance: async (c) => {
+      void this.magicCircle(c.user, 0xff7050, 900);
+      const blades = Array.from({ length: 6 }, (_, i) => {
+        const a = (i / 6) * Math.PI * 2;
+        return this.scene.add.image(c.u.x + Math.cos(a) * 44, c.u.y + Math.sin(a) * 18, "vfx-needle").setTint(0xffb080).setBlendMode(ADD).setDepth(DEPTH + 1).setAngle(-90).setScale(1.3);
+      });
+      const tw = { v: 0 };
+      await this.tween({ targets: tw, v: 1, duration: 720, onUpdate: () => {
+        blades.forEach((b, i) => {
+          const a = (i / 6) * Math.PI * 2 + tw.v * Math.PI * 4;
+          b.setPosition(c.u.x + Math.cos(a) * 46, c.u.y + Math.sin(a) * 16 - tw.v * 24).setAlpha(1 - tw.v * 0.4);
+        });
+      } });
+      blades.forEach((b) => b.destroy());
+    },
+    calmmind: async (c) => { void this.magicCircle(c.user, 0xd888ff, 950); await this.shield(c.user, 0xd888ff); },
+    irondefense: async (c) => this.shield(c.user, 0xc8d8e8),
+    dig: async (c) => { await this.quake(c.t); await this.lunge(c.user, c.dir, 46); await this.burst(c.t, 0xd8a868, 1.4, 18); },
+    fly: async (c) => { void this.afterimages(c.user, c.dir); await this.speedLines(c.u, c.t, 0xb8e8ff); await this.lunge(c.user, c.dir, 64); await this.impactSeal(c.t, 0xb8e8ff, 1.5); },
   };
 
   /* ---------------- composite helpers ---------------- */

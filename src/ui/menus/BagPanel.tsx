@@ -8,7 +8,7 @@ import { useMenuNav } from "./useMenuNav";
 
 const POCKETS: { id: ItemCategory[]; label: string }[] = [
   { id: ["medicine", "status"], label: "THUỐC" },
-  { id: ["ball"], label: "POKé BALL" },
+  { id: ["ball"], label: "PHA LÊ" },
   { id: ["evolution"], label: "ĐÁ TIẾN HÓA" },
 ];
 
@@ -21,7 +21,7 @@ export function BagPanel() {
 
   const [index, setIndex] = useMenuNav(items.length, (i) => {
     const item = ITEMS[items[i]];
-    if (item.category === "ball") { notify("Chỉ dùng được Poké Ball trong trận đấu."); return; }
+    if (item.category === "ball") { notify("Dùng pha lê bằng lệnh KẾT NỐI trong trận đấu với Pokémon hoang dã."); return; }
     if (!session.party.length) { notify("Bạn chưa có Pokémon."); return; }
     setTarget(items[i]);
   }, () => open("menu"), 1, target === null);

@@ -15,9 +15,11 @@ export class EncounterSystem {
    * Gentle encounter pity avoids long empty grass walks without flooding battles. */
   rollStep(table: EncounterTable): PokemonInstance | null {
     this.consecutiveGrassSteps++;
-    const pity = Math.min(0.16, (this.consecutiveGrassSteps - 1) * 0.018);
-    const chance = Math.min(0.28, table.rate + pity);
-    const triggered = this.consecutiveGrassSteps >= 12 || this.rng.chance(chance);
+    // First steps in grass are safe, then odds ramp gently; ~8 steps on average.
+    if (this.consecutiveGrassSteps <= 2) return null;
+    const pity = Math.min(0.12, (this.consecutiveGrassSteps - 3) * 0.012);
+    const chance = Math.min(0.22, table.rate + pity);
+    const triggered = this.consecutiveGrassSteps >= 20 || this.rng.chance(chance);
     if (!triggered) return null;
     this.consecutiveGrassSteps = 0;
     return this.pick(table);

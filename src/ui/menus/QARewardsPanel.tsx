@@ -35,7 +35,7 @@ export function RedeemPanel() {
       <button onClick={() => {setCode("MAP1-MOVE-LAB");redeem("MAP1-MOVE-LAB");}}>MAP1-MOVE-LAB</button>
     </div>
     {result && <div className={`qa-result ${result.ok ? "" : "error"}`}>{result.message}</div>}
-    <p className="qa-note"><b>MAP1-ALL-POKEMON:</b> bộ Pokémon thử nghiệm cấp 30, Poké Ball/Great Ball/Ultra Ball, thuốc và tiền. <br/><b>MAP1-MOVE-LAB:</b> mở phòng gắn chiêu thử nghiệm, nâng Pokémon đội hiện tại lên tối thiểu cấp 30.</p>
+    <p className="qa-note"><b>MAP1-ALL-POKEMON:</b> bộ Pokémon thử nghiệm cấp 30, đủ 3 loại pha lê kết nối, thuốc và tiền. <br/><b>MAP1-MOVE-LAB:</b> mở phòng gắn chiêu thử nghiệm, nâng Pokémon đội hiện tại lên tối thiểu cấp 30.</p>
   </QaWindow>;
 }
 

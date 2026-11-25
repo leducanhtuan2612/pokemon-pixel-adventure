@@ -10,7 +10,8 @@ import { gameAudio } from "../game/audio/GameAudio";
 
 export default function App() {
   const host = useRef<HTMLDivElement>(null);
-  const [started, setStarted] = useState(false);
+  // Dev-only ?fxdemo= skips the title overlay so the battle demo is visible.
+  const [started, setStarted] = useState(() => import.meta.env.DEV && new URLSearchParams(location.search).has("fxdemo"));
   const [audioEnabled, setAudioEnabled] = useState(gameAudio.isEnabled);
   const setReady = useGameStore((s) => s.setReady);
   const hasSave = session.data.starterChosen;

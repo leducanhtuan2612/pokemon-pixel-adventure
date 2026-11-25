@@ -8,9 +8,10 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "test": "node scripts/release-check.mjs",
+    "test": "node scripts/release-check.mjs && npm run test:battle",
     "test:release": "node scripts/release-check.mjs",
-    "gen:data": "node scripts/gen-data.mjs"
+    "gen:data": "node scripts/gen-data.mjs",
+    "test:battle": "esbuild scripts/battle-sim.ts --bundle --platform=node --format=esm --define:import.meta.env.DEV=true --log-level=warning --outfile=node_modules/.tmp/battle-sim.mjs && node node_modules/.tmp/battle-sim.mjs"
   },
   "dependencies": {
     "@fontsource/vt323": "^5.3.0",

@@ -27,6 +27,8 @@ export interface SaveData {
 }
 
 const KEY = "pixel-adventure-save-v1";
+/** A save that fails to load is copied here before anything can overwrite it. */
+const BACKUP_KEY = "pixel-adventure-save-v1-corrupt-backup";
 const VERSION = 4;
 export const PARTY_MAX = 6;
 
@@ -82,10 +84,17 @@ export class GameSession {
   changed() { this.save(); this.listeners.forEach((fn) => fn()); }
 
   load() {
+    let raw: string | null = null;
+    if (typeof localStorage === "undefined") { this.data = newGame(); return; } // headless tests
     try {
-      const raw = localStorage.getItem(KEY);
+      raw = localStorage.getItem(KEY);
       this.data = raw ? migrate(JSON.parse(raw)) : newGame();
-    } catch { this.data = newGame(); }
+    } catch (err) {
+      // Never silently destroy progress: keep the unreadable save for recovery/export.
+      console.error("Save could not be loaded; a backup was kept under", BACKUP_KEY, err);
+      try { if (raw) localStorage.setItem(BACKUP_KEY, raw); } catch { /* storage full/disabled */ }
+      this.data = newGame();
+    }
   }
   save() { try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch { /* storage disabled */ } }
   reset() { this.data = newGame(); this.changed(); }
@@ -142,6 +151,7 @@ export class GameSession {
 
   /** Redeem one-time Map 1 QA gifts; the test team is routed into party/PC safely. */
   redeemCode(raw: string): { ok: boolean; message: string } {
+    if (!import.meta.env.DEV) return { ok: false, message: "Mã quà thử nghiệm chỉ dùng trong bản phát triển." };
     const code = raw.trim().toUpperCase().replace(/\s+/g, "-").replace(/_/g, "-");
     const flag = "redeem:" + code;
     if (this.hasFlag(flag)) return { ok: false, message: "Mã này đã được đổi trên save hiện tại." };
@@ -185,7 +195,7 @@ export class GameSession {
 
   /** QA-only move assignment: allow any move in the current Gen 3 move registry. */
   assignTestMove(partyIndex: number, moveId: string, slotIndex: number): { ok: boolean; message: string } {
-    if (!this.hasFlag("unlock:move-lab")) return { ok: false, message: "Hãy đổi mã MAP1-MOVE-LAB trước." };
+    if (!import.meta.env.DEV || !this.hasFlag("unlock:move-lab")) return { ok: false, message: "Hãy đổi mã MAP1-MOVE-LAB trước." };
     const mon = this.data.party[partyIndex], id = normalizeMoveId(moveId), move = MOVES[id];
     if (!mon || !move || !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 3) return { ok: false, message: "Pokémon, chiêu hoặc ô chiêu không hợp lệ." };
     while (mon.moves.length <= slotIndex) mon.moves.push(slot("tackle"));

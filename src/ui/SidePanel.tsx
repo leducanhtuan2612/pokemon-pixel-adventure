@@ -7,6 +7,7 @@ import { HpBar, Sprite } from "./menus/common";
 
 export function SidePanel() {
   useGameStore((s) => s.version);
+  const open = useGameStore((s) => s.open);
   const d = session.data;
   const quest = questFor(d);
   const objective = quest.description;
@@ -18,6 +19,12 @@ export function SidePanel() {
       <div className="trainer-avatar">🧢</div>
       <div><strong>TRAINER {d.playerName}</strong><small>₽{d.money.toLocaleString("vi-VN")} · Huy hiệu {d.badges.length}</small></div>
       <span className="level">DEX {d.dex.caught.length}</span>
+    </div>
+    <div className="quick-actions">
+      <button onClick={() => open("party")}>ĐỘI HÌNH</button>
+      <button onClick={() => open("bag")}>TÚI ĐỒ</button>
+      <button onClick={() => open("dex")}>POKÉDEX</button>
+      <button onClick={() => open("menu")}>MENU</button>
     </div>
     <div className="section-title">ĐỘI HÌNH</div>
     <div className="side-party">

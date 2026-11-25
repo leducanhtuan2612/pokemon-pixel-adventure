@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { getMap } from "../data/maps";
 import { session } from "../core/GameSession";
 import { createPokemon } from "../core/pokemon";
+import { getSpecies } from "../data/species";
 import { getItem } from "../data/items";
 import { PlayerController } from "../entities/PlayerController";
 import { EncounterSystem } from "../systems/EncounterSystem";
@@ -303,9 +304,9 @@ export class OverworldScene extends Phaser.Scene {
         "Giáo sư Birch: Lựa chọn tuyệt vời! Hãy chăm sóc nó thật tốt nhé.",
         "HƯỚNG DẪN 1/4 · WASD hoặc phím mũi tên để di chuyển. Giữ SHIFT để chạy.",
         "HƯỚNG DẪN 2/4 · Đi qua cây cầu phía đông, bước vào cỏ cao để gặp Pokémon hoang.",
-        "HƯỚNG DẪN 3/4 · Trong trận: CHIÊU để tấn công, TÚI để ném Poké Ball hoặc dùng Potion.",
+        "HƯỚNG DẪN 3/4 · Trong trận: ĐÁNH tốn Năng lượng, THỦ để tích lũy, KẾT NỐI để kết bạn với Pokémon hoang đã yếu.",
         "HƯỚNG DẪN 4/4 · Nói chuyện với Youngster Joey để bắt đầu trận Trainer đầu tiên.",
-        "Ta tặng thêm 5 Poké Ball. ESC mở menu; TAB xem nhanh đội hình.",
+        "Ta tặng thêm 5 Pha Lê Kết Nối. ESC mở menu; TAB xem nhanh đội hình.",
       ], () => { session.addItem("poke-ball", 5); session.changed(); })));
     }
   }
@@ -454,7 +455,7 @@ export class OverworldScene extends Phaser.Scene {
       return;
     }
     if (def.role === "mart") { this.openDialog(def.dialog, () => useGameStore.getState().open("mart")); return; }
-    if (def.id === "oldman") { this.openDialog(def.dialog, () => useGameStore.getState().open("redeem")); return; }
+    if (def.id === "gift-codes" && import.meta.env.DEV) { this.openDialog(def.dialog, () => useGameStore.getState().open("redeem")); return; }
     if (def.role === "villager") { this.openDialog(def.dialog); return; }
     if (def.role === "critter") { this.speaker = undefined; this.openDialog(def.dialog); return; }
     if (def.role === "guide") {
@@ -488,7 +489,7 @@ export class OverworldScene extends Phaser.Scene {
 
     const team = (def.team ?? []).map((t) => createPokemon(t.speciesId, t.level));
     if (!team.length) return;
-    this.openDialog(def.dialog, () => this.startBattle({ kind: "trainer", foeParty: team, trainerName: def.name, prize: def.prize, trainerLook: def.look }, def));
+    this.openDialog(def.dialog, () => this.startBattle({ kind: "trainer", foeParty: team, trainerName: def.name, prize: def.prize, trainerLook: def.look, boss: def.role === "boss" }, def));
   }
 
   private speaker: string | undefined;
@@ -503,7 +504,7 @@ export class OverworldScene extends Phaser.Scene {
   /* Battles                                                           */
   /* ---------------------------------------------------------------- */
 
-  private startBattle(partial: Pick<BattleSetup, "kind" | "foeParty" | "trainerName" | "prize" | "trainerLook">, trainer?: NpcDef) {
+  private startBattle(partial: Pick<BattleSetup, "kind" | "foeParty" | "trainerName" | "prize" | "trainerLook" | "boss">, trainer?: NpcDef) {
     this.inBattle = true;
     gameAudio.setTrack("battle");
     gameAudio.play("encounter");
@@ -514,6 +515,7 @@ export class OverworldScene extends Phaser.Scene {
       onCaught: (mon) => session.addPokemon(mon),
       onSeen: (id) => session.markSeen(id),
       onEvolved: (id) => session.markCaught(id),
+      hasCaught: (id) => this.save.dex.caught.includes(getSpecies(id).dex),
     };
     const data: BattleSceneData = { setup, onEnd: (r) => this.endBattle(r, trainer) };
     // Classic encounter transition: two flashes, then black bars sweep in from alternating sides.
@@ -563,11 +565,12 @@ export class OverworldScene extends Phaser.Scene {
     }
     if (r.outcome === "win" && trainer) {
       if (!this.save.defeated.includes(trainer.id)) this.save.defeated.push(trainer.id);
+      this.world.refreshNpcBadges(this.save.defeated);
       this.save.money += r.prizeMoney;
       const pages = [...(trainer.defeatedDialog ?? [])];
       if (trainer.badge && !this.save.badges.includes(trainer.badge)) {
         this.save.badges.push(trainer.badge);
-        pages.unshift("Bạn đã nhận được FOREST BADGE!");
+        pages.unshift("Bạn đã nhận được HUY HIỆU RỪNG THẲM!", "Huy hiệu chứng nhận bạn đã làm chủ Cộng hưởng nguyên tố của Làng Lá Xanh.");
       }
       session.changed();
       this.openDialog(pages, () => {

@@ -26,7 +26,7 @@ export function RedeemPanel() {
       <button className="px-redeem-submit" disabled={!code.trim() || busy} onClick={submit}>ĐỔI QUÀ <span>↗</span></button>
       <div className="px-code-list">
         <b>MÃ DÙNG ĐỂ TEST</b>
-        <p><code>GREENLEAF-TEST</code><br/>Đội test Map 1 Lv.30 + Poké Ball, thuốc, tiền.</p>
+        <p><code>GREENLEAF-TEST</code><br/>Đội test Map 1 Lv.30 + pha lê, thuốc, tiền.</p>
         <p><code>MAP1-MOVE-LAB</code><br/>Mở phòng thử chiêu, nâng đội tối thiểu Lv.30.</p>
         <small>Mỗi mã chỉ đổi một lần trên save hiện tại. Mã chỉ phục vụ bản test.</small>
       </div>

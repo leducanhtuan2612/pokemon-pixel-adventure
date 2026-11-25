@@ -23,15 +23,20 @@ export function effectiveSpeed(mon: PokemonInstance, stages: Stages) {
 
 export interface DamageResult { damage: number; crit: boolean; eff: number }
 
+/** Ultimates pierce immunities (minimum ×0.5), so no matchup is ever a hard wall. */
+export function ultimateEff(move: MoveData, eff: number) {
+  return move.id.startsWith("ult-") ? Math.max(0.5, eff) : eff;
+}
+
 /** Gen 3 damage formula (no abilities/items/weather). */
 export function calcDamage(
   rng: RandomService, move: MoveData,
   attacker: PokemonInstance, aStages: Stages,
   defender: PokemonInstance, dStages: Stages,
-  opts: { critStage?: number; power?: number; screen?: boolean } = {},
+  opts: { critStage?: number; power?: number; screen?: boolean; mult?: number } = {},
 ): DamageResult {
   const atkTypes = getSpecies(attacker.speciesId).types, defTypes = getSpecies(defender.speciesId).types;
-  const eff = move.id === "struggle" ? 1 : effectiveness(move.type, defTypes);
+  const eff = move.id === "struggle" ? 1 : ultimateEff(move, effectiveness(move.type, defTypes));
   if (eff === 0) return { damage: 0, crit: false, eff };
   const physical = categoryOf(move.type) === "physical";
   const a = calcStats(attacker), d = calcStats(defender);
@@ -48,16 +53,30 @@ export function calcDamage(
   if (crit) dmg *= 2;
   if (move.id !== "struggle" && atkTypes.includes(move.type)) dmg = Math.floor(dmg * 1.5);
   dmg = Math.floor(dmg * eff);
+  if (opts.mult && opts.mult !== 1) dmg = Math.floor(dmg * opts.mult);
   dmg = Math.floor((dmg * rng.int(85, 100)) / 100);
   return { damage: Math.max(1, dmg), crit, eff };
 }
 
-/** Gen 3 catch formula; returns number of shakes (4 = caught). */
-export function catchShakes(rng: RandomService, mon: PokemonInstance, ballMultiplier: number): number {
+/** Probability that a bond attempt succeeds (all four checks pass). */
+export function bondChance(mon: PokemonInstance, multiplier: number): number {
+  const a = bondValue(mon, multiplier);
+  if (a >= 255) return 1;
+  if (a <= 0) return 0;
+  const b = Math.floor(1048560 / Math.floor(Math.sqrt(Math.floor(Math.sqrt(Math.floor(16711680 / a))))));
+  return Math.min(1, Math.pow(b / 65536, 4));
+}
+
+function bondValue(mon: PokemonInstance, multiplier: number) {
   const M = calcStats(mon).hp, H = Math.max(1, mon.hp);
   const rate = getSpecies(mon.speciesId).catchRate;
-  const statusMult = mon.status === "slp" ? 2 : mon.status ? 1.5 : 1;
-  const a = Math.floor((Math.floor(((3 * M - 2 * H) * rate * ballMultiplier) / (3 * M))) * statusMult);
+  const statusMult = mon.status === "slp" || mon.status === "frz" ? 2 : mon.status ? 1.5 : 1;
+  return Math.floor((Math.floor(((3 * M - 2 * H) * rate * multiplier) / (3 * M))) * statusMult);
+}
+
+/** Gen 3 catch formula; returns number of shakes (4 = caught). */
+export function catchShakes(rng: RandomService, mon: PokemonInstance, ballMultiplier: number): number {
+  const a = bondValue(mon, ballMultiplier);
   if (a >= 255) return 4;
   if (a <= 0) return 0;
   const b = Math.floor(1048560 / Math.floor(Math.sqrt(Math.floor(Math.sqrt(Math.floor(16711680 / a))))));

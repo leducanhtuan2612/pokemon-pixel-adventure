@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { ensurePlaceholders, preloadPokemonSprites } from "../battle/sprites";
+import { createPokemon } from "../core/pokemon";
 
 /** Loads Pokémon sprites (whatever exists in src/assets) and fills gaps with placeholders. */
 export class BootScene extends Phaser.Scene {
@@ -16,8 +17,23 @@ export class BootScene extends Phaser.Scene {
   create() {
     ensurePlaceholders(this);
     // Pixel font must be ready before any Phaser text is rasterised.
-    const go = () => this.scene.start("OverworldScene");
+    const demo = import.meta.env.DEV ? new URLSearchParams(location.search).get("fxdemo") : null;
+    const go = demo ? () => this.startDemo(demo) : () => this.scene.start("OverworldScene");
     if (document.fonts?.load) Promise.race([document.fonts.load('26px "VT323"'), new Promise((r) => setTimeout(r, 1500))]).then(go, go);
     else go();
+  }
+
+  /** Dev-only: jump straight into a battle that auto-plays one move (e.g. ?fxdemo=flamethrower or ?fxdemo=ult). */
+  private startDemo(move: string) {
+    const species = new URLSearchParams(location.search).get("mon") ?? "charmander";
+    const bag = { count: () => 0, take: () => false };
+    this.scene.start("BattleScene", {
+      demo: move,
+      setup: {
+        kind: "wild", playerParty: [createPokemon(species, 40)], foeParty: [createPokemon("bulbasaur", 40)], bag,
+        onCaught: () => "party", onSeen: () => {}, hasCaught: () => false,
+      },
+      onEnd: () => {},
+    });
   }
 }

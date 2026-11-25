@@ -11,8 +11,9 @@ export function StartMenu() {
     { label: "POKéDEX", action: () => open("dex") },
     ...(hasParty ? [{ label: "POKéMON", action: () => open("party") }] : []),
     { label: "TÚI ĐỒ", action: () => open("bag") },
-    { label: "ĐỔI MÃ QUÀ", action: () => open("redeem") },
-    ...(session.data.flags.includes("unlock:move-lab") ? [{ label: "MOVE LAB · TEST CHIÊU", action: () => open("moveLab") }] : []),
+    // QA tools ship only in development builds.
+    ...(import.meta.env.DEV ? [{ label: "ĐỔI MÃ QUÀ (QA)", action: () => open("redeem") }] : []),
+    ...(import.meta.env.DEV && session.data.flags.includes("unlock:move-lab") ? [{ label: "MOVE LAB · TEST CHIÊU", action: () => open("moveLab") }] : []),
     ...(hasParty ? [{ label: "PC BOX", action: () => open("box" as Panel) }] : []),
     { label: "LƯU GAME", action: () => { session.changed(); notify("Đã lưu tiến trình!"); close(); } },
     { label: "ĐÓNG", action: close },

@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const read = (p) => readFile(join(root, p), "utf8");
@@ -57,6 +58,16 @@ try {
   const pkg = JSON.parse(await read("package.json"));
   if (!pkg.scripts.typecheck || !pkg.scripts.build) fail("typecheck/build scripts missing");
   else pass("release scripts", "typecheck and production build declared");
+
+  // Actually run the typechecker: a declared script proves nothing if it fails.
+  const tsc = spawnSync(process.execPath, [join(root, "node_modules/typescript/bin/tsc"), "-b"], { cwd: root, encoding: "utf8" });
+  if (tsc.status !== 0) fail(`typecheck failed:
+${(tsc.stdout || "") + (tsc.stderr || "")}`.trim());
+  else pass("typecheck", "tsc -b passed");
+
+  const source = await read("src/game/core/GameSession.ts");
+  if (!/redeemCode[\s\S]{0,120}import\.meta\.env\.DEV/.test(source)) fail("QA redeem codes are not gated behind import.meta.env.DEV");
+  else pass("QA gating", "redeem codes disabled in production builds");
 
   if (process.exitCode) console.error("Release checks failed. Fix these before preparing a candidate.");
   else console.log("Static release checks passed. This is not a substitute for browser/gameplay QA or asset clearance.");

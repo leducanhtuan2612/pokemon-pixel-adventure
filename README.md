@@ -32,6 +32,25 @@ To add a map: copy `greenleaf.ts`, edit the layout/data and register it in `src/
 
 Gameplay loop on this map: talk to NPCs and signs, catch Pokémon in tall grass, beat Finn, Willow and Moss, then the Forest Guardian; the Guardian steps aside and the east exit unlocks Crystal Cave.
 
+## Battle system v2 — Resonance (Cộng hưởng)
+Battles no longer play like classic monster battlers:
+
+- **Energy (NL) instead of PP** — each side has 0–10 energy, starts at 4 and regains 2 per turn. Moves cost 0 (≤40 power) up to 6; status moves cost 2. Energy belongs to the trainer, so switching keeps it.
+- **THỦ (Guard)** — always acts first: halves incoming damage and banks +3 energy.
+- **Elemental marks & reactions** — every elemental hit leaves a 3-turn *Mark* on the target. Hitting a marked target with a different element triggers a *Reaction* and consumes the mark (e.g. Fire + Grass = THIÊU RỤI ×1.6 + burn, Electric + Water = DẪN ĐIỆN ×1.5 + paralysis, Water + Fire = BỐC HƠI ×1.5 − accuracy). Table in `src/game/battle/elements.ts`; trainer AI plans reactions too.
+- **Rhythm timing** — after picking an attack, a ring shrinks onto the foe; confirm on the white circle for ×1.15 (good) or ×1.3 (perfect).
+- **Surge (BP) & ultimates** — dealing/taking damage and reactions fill the Surge gauge; when full, **TUYỆT KỸ** fires a per-element cinematic ultimate (power ≥120, never misses, pierces immunities). Bosses start at 50%.
+- **KẾT NỐI (Bond) instead of throwing balls** — pick a Bond Crystal, see the real odds, then hit 3 rhythm beats to boost bond strength (up to +75%).
+- **Stalemate breaker** — from turn 40 the arena drains both actives each turn, so no matchup loops forever.
+
+Effects: `src/game/battle/fx/Fx3D.ts` (pseudo-3D toolkit: volumetric cone beams, helixes that wrap behind targets, floor-plane shockwaves, perspective rings, 3D debris with shadows, cinematic camera zoom/pan, bloom, letterbox, extruded title cards) and `fx/Ultimates.ts` (one cinematic per element). The battle uses two cameras: the world camera zooms and pans, while the HUD stays fixed.
+
+Map 1 finale: after beating all four Route 101 trainers, challenge the **Forest Guardian (Hộ Vệ Rừng Thẳm)** in Moonlit Grove for the Forest Badge (main quest step 7).
+
+Dev tools (dev builds only): `?fxdemo=flamethrower` (any move id), `?fxdemo=ult&mon=squirtle` or `?fxdemo=menu` jump straight into a demo battle. QA redeem codes and the Move Lab are stripped from production builds.
+
+Tests: `npm test` runs static release checks, the TypeScript typecheck and a headless 300-battle fuzzer (`scripts/battle-sim.ts`).
+
 ## Gameplay (v0.2)
 - **Starter:** talk to Ranger Oak and pick Bulbasaur, Charmander or Squirtle.
 - **All 151 Kanto Pokémon** with Gen 3 base stats, types, level-up learnsets and evolutions generated from [`@pkmn/dex`](https://github.com/pkmn/ps) (MIT) via `npm run gen:data` → `src/game/data/generated/`.

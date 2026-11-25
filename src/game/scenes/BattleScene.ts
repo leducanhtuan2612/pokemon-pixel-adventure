@@ -4,15 +4,21 @@ import { hasBack, shinyKey, spriteKey } from "../battle/sprites";
 import { ITEMS, getItem } from "../data/items";
 import { getMove, type MoveData } from "../data/moves";
 import { getSpecies } from "../data/species";
-import { TYPE_COLORS, TYPE_VI, categoryOf } from "../data/types";
+import { TYPE_COLORS, TYPE_VI, categoryOf, effectiveness } from "../data/types";
 import { STATUS_COLOR, STATUS_LABEL, displayName, evolve, maxHp, type PokemonInstance } from "../core/pokemon";
 import { CHAR_FRAME, ensureCharacterTexture } from "../world/TilesetFactory";
 import { UI_FONT } from "../ui/DialogBox";
 import { MoveFx } from "../battle/fx/MoveFx";
 import { gameAudio } from "../audio/GameAudio";
+import { session } from "../core/GameSession";
+import { ELEMENT_INFO, ENERGY_MAX, SURGE_MAX, elementOf, energyCost, type Element } from "../battle/elements";
 
 export interface BattleResult { outcome: Outcome; prizeMoney: number }
-export interface BattleSceneData { setup: BattleSetup; onEnd: (r: BattleResult) => void }
+export interface BattleSceneData {
+  setup: BattleSetup; onEnd: (r: BattleResult) => void;
+  /** Dev-only effect demo: a move id, or "ult" for the ultimate. Actions are chosen automatically. */
+  demo?: string;
+}
 
 type Key = "up" | "down" | "left" | "right" | "ok" | "back";
 type Input = Key | { pick: number } | { focus: number };
@@ -26,12 +32,16 @@ const hex = (c: string) => Phaser.Display.Color.HexStringToColor(c).color;
 const lighten = (c: number, a: number) => Phaser.Display.Color.IntegerToColor(c).lighten(a).color;
 const darken = (c: number, a: number) => Phaser.Display.Color.IntegerToColor(c).darken(a).color;
 const hpColor = (f: number) => (f > 0.5 ? 0x58d080 : f > 0.2 ? 0xf8c030 : 0xf05858);
-const BALL_COLORS: Record<string, [number, number]> = { "poke-ball": [0xe04040, 0xf8f8f8], "great-ball": [0x3878e0, 0xf8f8f8], "ultra-ball": [0x383838, 0xf8d030] };
+/** Bond crystal colours (core, glow) per tier. */
+const CRYSTAL_COLORS: Record<string, [number, number]> = { "poke-ball": [0x7ad8ff, 0xd8f6ff], "great-ball": [0x5a7cff, 0xc8d4ff], "ultra-ball": [0xffc83a, 0xfff2b0] };
+const CRYSTALS = ["poke-ball", "great-ball", "ultra-ball"];
+
+interface Hud { root: Phaser.GameObjects.Container; pips: Phaser.GameObjects.Rectangle[]; surge: Phaser.GameObjects.Rectangle; surgeW: number; label: Phaser.GameObjects.Text; glow?: Phaser.Tweens.Tween }
 
 interface InfoBox {
   root: Phaser.GameObjects.Container; name: Phaser.GameObjects.Text; level: Phaser.GameObjects.Text;
   bar: Phaser.GameObjects.Rectangle; barW: number; status: Phaser.GameObjects.Text;
-  hpText?: Phaser.GameObjects.Text; exp?: Phaser.GameObjects.Rectangle; expW?: number; view?: MonView;
+  hpText?: Phaser.GameObjects.Text; exp?: Phaser.GameObjects.Rectangle; expW?: number; caught?: Phaser.GameObjects.Text; view?: MonView;
 }
 
 interface Button { root: Phaser.GameObjects.Container; setFocus(on: boolean): void; enabled: boolean }
@@ -58,6 +68,16 @@ export class BattleScene extends Phaser.Scene {
   private lastAction = 0;
   private lastMove = 0;
   private fx!: MoveFx;
+  /** Screen-space HUD lives on its own camera so the world camera can zoom/pan cinematically. */
+  private uiLayer!: Phaser.GameObjects.Layer;
+  private uiCam!: Phaser.Cameras.Scene2D.Camera;
+  private msgRoot!: Phaser.GameObjects.Container;
+  /** Info boxes + energy strips; faded while a move plays so the effect isn't hidden. */
+  private hudGroup!: Phaser.GameObjects.Container;
+  private hud!: Record<Side, Hud>;
+  private markIcon!: Record<Side, Phaser.GameObjects.Container>;
+  private shadows!: Record<Side, Phaser.GameObjects.Ellipse>;
+  private qteActive = false;
 
   constructor() { super("BattleScene"); }
 
@@ -66,18 +86,47 @@ export class BattleScene extends Phaser.Scene {
   create() {
     this.engine = new BattleEngine(this.data_.setup);
     this.makeFxTextures();
+    this.setupCameras();
     this.drawBackground();
-    this.fx = new MoveFx(this);
+    this.fx = new MoveFx(this, { uiAdd: (o) => this.uiLayer.add(o), setHud: (v) => this.setHudVisible(v) });
+    this.shadows = {
+      foe: this.add.ellipse(FOE.x, FOE.y - 2, 130, 24, 0x000000, 0.28).setDepth(4.9).setVisible(false),
+      player: this.add.ellipse(PLAYER.x, PLAYER.y - 4, 170, 30, 0x000000, 0.28).setDepth(4.9).setVisible(false),
+    };
     this.foeSprite = this.add.image(FOE.x, FOE.y, "__DEFAULT").setOrigin(0.5, 1).setVisible(false).setDepth(5);
     this.playerSprite = this.add.image(PLAYER.x, PLAYER.y, "__DEFAULT").setOrigin(0.5, 1).setVisible(false).setDepth(6);
+    this.markIcon = { foe: this.makeMarkIcon(FOE.x + 92, FOE.y - 118), player: this.makeMarkIcon(PLAYER.x + 112, PLAYER.y - 168) };
     this.foeBox = this.makeInfoBox(18, 20, false);
     this.playerBox = this.makeInfoBox(346, 172, true);
+    this.hud = { foe: this.makeHud(18, 96), player: this.makeHud(354, 274) };
     this.drawMessageBox();
     this.ui = this.add.container(0, 0).setDepth(50);
+    this.hudGroup = this.add.container(0, 0, [this.foeBox.root, this.playerBox.root, this.hud.foe.root, this.hud.player.root]);
+    this.uiLayer.add([this.hudGroup, this.msgRoot, this.ui]);
     this.setupTrainers();
     this.setupKeyboard();
+    this.input.on("pointerdown", () => { if (this.qteActive) this.emit("ok"); });
     this.cameras.main.fadeIn(350, 0, 0, 0);
+    this.uiCam.fadeIn(350, 0, 0, 0);
     void this.run();
+  }
+
+  /** World camera (zoomable, cinematic) + UI camera (fixed HUD). */
+  private setupCameras() {
+    this.uiLayer = this.add.layer().setDepth(1000);
+    this.uiCam = this.cameras.add(0, 0, W, H);
+    this.cameras.main.ignore(this.uiLayer).setBounds(0, 0, W, H);
+    // Every world object created at any time (effects included) is hidden from the UI camera.
+    const filter = () => {
+      const id = this.uiCam.id;
+      for (const o of this.children.list) if ((o as unknown) !== this.uiLayer) o.cameraFilter |= id;
+    };
+    this.events.on(Phaser.Scenes.Events.POST_UPDATE, filter);
+    filter();
+  }
+
+  private setHudVisible(v: boolean) {
+    [this.hudGroup, this.msgRoot, this.ui].forEach((o) => o.setVisible(v));
   }
 
   /* ------------------------------------------------------------ */
@@ -88,6 +137,11 @@ export class BattleScene extends Phaser.Scene {
     await this.wait(250);
     await this.trainersEnter();
     await this.play(this.engine.intro());
+    if (!this.data_.demo) await this.tutorial();
+    if (this.data_.setup.boss) {
+      await this.say("⚠ Hộ Vệ bắt đầu với thanh BỘC PHÁT nạp sẵn một nửa!");
+      await this.say("Khi thanh của nó đầy, nó sẽ tung TUYỆT KỸ. Hãy chọn THỦ đúng lúc để giảm sát thương!");
+    }
     while (this.engine.phase !== "over") {
       if (this.engine.phase === "forceSwitch") {
         const idx = await this.pickPokemon(true, "Chọn Pokémon tiếp theo.");
@@ -100,6 +154,7 @@ export class BattleScene extends Phaser.Scene {
     for (const evo of this.engine.pendingEvolutions()) await this.evolveSequence(evo.mon, evo.into);
     await this.wait(300);
     this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.uiCam.fadeOut(400, 0, 0, 0);
     await this.wait(430);
     const result = { outcome: this.engine.outcome ?? "run", prizeMoney: this.engine.prizeMoney };
     if (result.outcome === "caught") gameAudio.play("catch");
@@ -110,24 +165,60 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private async chooseAction(): Promise<PlayerAction | null> {
+    const demo = this.data_.demo;
+    if (demo && demo !== "menu") {
+      this.engine.debugCharge("player");
+      this.setEnergy("player", this.engine.energy("player"), this.engine.surge("player"));
+      if (demo === "ult") return { type: "ultimate", timing: 1.3 };
+      const mon = this.engine.playerMon;
+      mon.moves[0] = { id: demo, pp: 10, maxPp: 10 };
+      return { type: "move", index: 0, timing: 1.3 };
+    }
     for (;;) {
       const choice = await this.actionMenu();
       if (choice === 0) {
         const idx = await this.moveMenu();
-        if (idx !== null) return { type: "move", index: idx };
+        if (idx !== null) {
+          const move = getMove(this.engine.playerMon.moves[idx].id);
+          const timing = move.power > 0 ? await this.timingCheck() : 1;
+          return { type: "move", index: idx, timing };
+        }
       } else if (choice === 1) {
+        return { type: "guard" };
+      } else if (choice === 2) {
+        if (!this.engine.surgeReady("player")) { await this.say(`Thanh BỘC PHÁT mới ${Math.floor(this.engine.surge("player"))}%. Gây và nhận sát thương, tạo phản ứng để nạp đầy!`); continue; }
+        const ult = this.engine.ultimateMove("player");
+        await this.say(`TUYỆT KỸ: ${ult.name} (${TYPE_VI[ult.type]} · ${ult.power} sức mạnh). Giữ nhịp để tăng uy lực!`, 1200);
+        return { type: "ultimate", timing: await this.timingCheck() };
+      } else if (choice === 3) {
         const item = await this.bagMenu();
         if (item) return item;
-      } else if (choice === 2) {
+      } else if (choice === 4) {
         const idx = await this.pickPokemon(false, "Chọn Pokémon để đổi ra trận.");
         if (idx !== null) {
           if (this.data_.setup.playerParty[idx] === this.engine.playerMon) { await this.say(`${displayName(this.engine.playerMon)} đang chiến đấu rồi!`); continue; }
           return { type: "switch", index: idx };
         }
-      } else if (choice === 3) {
+      } else if (choice === 5) {
+        if (this.engine.isTrainer) { await this.say("Không thể kết nối với Pokémon của Trainer khác!"); continue; }
+        const bond = await this.bondMenu();
+        if (bond) return bond;
+      } else if (choice === 6) {
         return { type: "run" };
       }
     }
+  }
+
+  /** First battle: explain the three systems that differ from classic monster battlers. */
+  private async tutorial() {
+    if (session.hasFlag("tut:battle-v2")) return;
+    session.setFlag("tut:battle-v2");
+    session.save();
+    await this.say("HƯỚNG DẪN · Mỗi chiêu tốn NĂNG LƯỢNG (thanh xanh). Chiêu yếu miễn phí, chiêu mạnh cần tích lũy.");
+    await this.say("Chọn THỦ để giảm nửa sát thương và nạp thêm 3 năng lượng. Mỗi lượt tự hồi 2.");
+    await this.say("Đòn nguyên tố để lại DẤU ẤN trên đối thủ. Đánh nguyên tố khác vào dấu ấn sẽ tạo PHẢN ỨNG cực mạnh!");
+    await this.say("Khi ra đòn, nhấn Z (hoặc chạm) lúc vòng sáng trùng vòng trắng để đạt nhịp HOÀN HẢO.");
+    await this.say("Thanh BỘC PHÁT đầy thì mở khóa TUYỆT KỸ. Muốn có bạn đồng hành mới, chọn KẾT NỐI khi đối thủ đã yếu.");
   }
 
   /* ------------------------------------------------------------ */
@@ -141,7 +232,12 @@ export class BattleScene extends Phaser.Scene {
         case "sendOut": await this.sendOut(e.side, e.mon); break;
         case "recall": await this.recall(); break;
         case "move": gameAudio.play("attack"); await this.moveFx(e.side, e.move); break;
-        case "hit": await this.hitAnim(e.side, e.eff); break;
+        case "hit": this.popDamage(e.side, e.damage ?? 0, !!e.crit, e.eff); await this.hitAnim(e.side, e.eff); break;
+        case "energy": this.setEnergy(e.side, e.energy, e.surge); break;
+        case "mark": this.setMark(e.side, e.mark, e.turns); break;
+        case "reaction": await this.reactionBanner(e.side, e.name, e.color); break;
+        case "guard": await this.guardFx(e.side); break;
+        case "ultimate": gameAudio.play("encounter"); break;
         case "hp": await this.animateHp(e.side === "player" ? this.playerBox : this.foeBox, e.hp, e.maxHp); break;
         case "status": this.setStatus(e.side === "player" ? this.playerBox : this.foeBox, e.status); break;
         case "stat": await this.statAnim(e.side, e.up); break;
@@ -195,6 +291,10 @@ export class BattleScene extends Phaser.Scene {
       Z: "ok", ENTER: "ok", " ": "ok", X: "back", ESCAPE: "back", BACKSPACE: "back",
     };
     this.input.keyboard!.on("keydown", (e: KeyboardEvent) => {
+      if (e.key >= "1" && e.key <= "4") {
+        this.emit({ pick: Number(e.key) - 1 });
+        return;
+      }
       const k = map[e.key.toUpperCase()];
       if (k) this.emit(k);
     });
@@ -293,36 +393,98 @@ export class BattleScene extends Phaser.Scene {
     make("fx-rock", 18, 16, (g) => { g.fillStyle(0x6c6458, 1).fillPoints([new Phaser.Math.Vector2(3, 0), new Phaser.Math.Vector2(15, 2), new Phaser.Math.Vector2(18, 12), new Phaser.Math.Vector2(9, 16), new Phaser.Math.Vector2(0, 10)], true); g.fillStyle(0xa8a090, 1).fillRect(4, 3, 6, 4); });
   }
 
+  /**
+   * Layered battlefield with real perspective: gradient sky, far mountains,
+   * hills and tree line on parallax layers (scrollFactor < 1, so cinematic
+   * camera pans reveal depth), a ground plane with lines converging to a
+   * vanishing point, and thick 3D platform discs with soft shadows.
+   */
   private drawBackground() {
-    const g = this.add.graphics().setDepth(0);
-    // Sky gradient in bands (keeps the pixel look)
-    const sky = [0xf8f8e8, 0xf0f4e0, 0xe8f0d8, 0xe0ecd0, 0xd8e8c8, 0xd0e4c0];
-    sky.forEach((c, i) => g.fillStyle(c, 1).fillRect(0, i * 16, W, 16));
-    // Distant tree line
-    g.fillStyle(0xb8d8a0, 1);
-    for (let x = -10; x < W + 20; x += 26) g.fillCircle(x, 100 + ((x * 7) % 9), 22);
-    g.fillStyle(0xa8cc90, 1).fillRect(0, 100, W, 18);
-    // Field
-    g.fillStyle(0xc8e4a8, 1).fillRect(0, 112, W, PANEL_Y - 112);
-    for (let i = 0; i < 34; i++) g.fillStyle(i % 2 ? 0xb8d898 : 0xd8ecc0, 1).fillRect((i * 97) % W, 124 + ((i * 53) % 150), 14 + (i % 3) * 6, 3);
-    // Platforms: rim, top, grass tufts
-    const platform = (x: number, y: number, w: number, h: number) => {
-      g.fillStyle(0x78a858, 1).fillEllipse(x, y + 4, w + 8, h + 8);
-      g.fillStyle(0x98c878, 1).fillEllipse(x, y, w, h);
-      g.fillStyle(0xb0dc90, 1).fillEllipse(x - w * 0.08, y - h * 0.12, w * 0.7, h * 0.5);
+    const tex = (key: string, w: number, h: number, draw: (c: CanvasRenderingContext2D) => void) => {
+      if (this.textures.exists(key)) return;
+      const cv = document.createElement("canvas");
+      cv.width = w; cv.height = h;
+      draw(cv.getContext("2d")!);
+      this.textures.addCanvas(key, cv);
     };
-    platform(FOE.x, FOE.y - 2, 236, 52);
-    platform(PLAYER.x, PLAYER.y - 6, 290, 60);
-    // Drifting clouds
-    for (let i = 0; i < 3; i++) {
-      const c = this.add.graphics().setDepth(1);
-      c.fillStyle(0xffffff, 0.9).fillEllipse(0, 0, 70, 18).fillEllipse(20, -8, 46, 18).fillEllipse(-18, -4, 36, 14);
-      c.setPosition(120 + i * 230, 30 + i * 14);
-      this.tweens.add({ targets: c, x: c.x + 60, duration: 9000 + i * 2000, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    const HORIZON = 118;
+    tex("bt-sky", 960, 200, (c) => {
+      const g = c.createLinearGradient(0, 0, 0, 200);
+      g.addColorStop(0, "#5fb6f0"); g.addColorStop(0.55, "#a9dcf8"); g.addColorStop(1, "#fff1d6");
+      c.fillStyle = g; c.fillRect(0, 0, 960, 200);
+      const sun = c.createRadialGradient(760, 60, 0, 760, 60, 150);
+      sun.addColorStop(0, "rgba(255,252,230,1)"); sun.addColorStop(0.12, "rgba(255,246,200,0.9)"); sun.addColorStop(0.4, "rgba(255,230,170,0.25)"); sun.addColorStop(1, "rgba(255,230,170,0)");
+      c.fillStyle = sun; c.fillRect(0, 0, 960, 200);
+    });
+    tex("bt-mountains", 960, 90, (c) => {
+      const layer = (color: string, base: number, amp: number, seed: number) => {
+        c.fillStyle = color; c.beginPath(); c.moveTo(0, 90);
+        for (let x = 0; x <= 960; x += 12) c.lineTo(x, base - Math.abs(Math.sin(x * 0.006 + seed)) * amp - Math.sin(x * 0.031 + seed * 3) * amp * 0.18);
+        c.lineTo(960, 90); c.closePath(); c.fill();
+      };
+      layer("rgba(150,180,215,0.85)", 70, 55, 1.3);
+      layer("rgba(120,160,190,0.9)", 84, 34, 4.1);
+    });
+    tex("bt-hills", 960, 60, (c) => {
+      c.fillStyle = "#7fbf72"; c.beginPath(); c.moveTo(0, 60);
+      for (let x = 0; x <= 960; x += 8) c.lineTo(x, 34 - Math.sin(x * 0.012) * 12 - Math.sin(x * 0.047) * 4);
+      c.lineTo(960, 60); c.closePath(); c.fill();
+      // tree line silhouettes with a lit top edge
+      for (let x = -10; x < 980; x += 22) {
+        const h = 16 + ((x * 37) % 11);
+        c.fillStyle = "#4f9a58"; c.beginPath(); c.ellipse(x, 52 - h / 2, 14, h, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "rgba(190,240,170,0.45)"; c.beginPath(); c.ellipse(x - 4, 52 - h, 7, 4, 0, 0, Math.PI * 2); c.fill();
+      }
+    });
+    tex("bt-ground", 640, PANEL_Y - HORIZON + 120, (c) => {
+      const h = PANEL_Y - HORIZON + 120;
+      const g = c.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, "#b8e09a"); g.addColorStop(0.35, "#94cf78"); g.addColorStop(1, "#5ea44c");
+      c.fillStyle = g; c.fillRect(0, 0, 640, h);
+      // Perspective rows (closer = further apart) and lines converging to the vanishing point.
+      c.strokeStyle = "rgba(255,255,255,0.10)"; c.lineWidth = 1;
+      for (let i = 1; i < 14; i++) { const y = Math.pow(i / 14, 1.8) * h; c.beginPath(); c.moveTo(0, y); c.lineTo(640, y); c.stroke(); }
+      for (let i = -12; i <= 12; i++) { c.beginPath(); c.moveTo(320 + i * 14, 0); c.lineTo(320 + i * 120, h); c.stroke(); }
+      // Grass tufts that grow with proximity.
+      for (let i = 0; i < 160; i++) {
+        const t = Math.pow(Math.random(), 0.7), y = t * h, x = Math.random() * 640, s = 1 + t * 4;
+        c.strokeStyle = Math.random() < 0.5 ? "rgba(60,120,50,0.55)" : "rgba(220,250,190,0.5)";
+        c.lineWidth = Math.max(1, s * 0.45);
+        c.beginPath(); c.moveTo(x, y); c.lineTo(x - s, y - s * 2); c.moveTo(x, y); c.lineTo(x + s * 0.6, y - s * 2.4); c.stroke();
+      }
+    });
+    tex("bt-platform", 320, 110, (c) => {
+      // Thick disc: dark side band, then lit top with rim highlight.
+      c.fillStyle = "#4a7a3c"; c.beginPath(); c.ellipse(160, 62, 150, 40, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = "#3a6430"; c.fillRect(10, 50, 300, 12);
+      const top = c.createRadialGradient(130, 40, 10, 160, 50, 160);
+      top.addColorStop(0, "#d0f0a8"); top.addColorStop(0.55, "#9ccf78"); top.addColorStop(1, "#6fa858");
+      c.fillStyle = top; c.beginPath(); c.ellipse(160, 50, 150, 40, 0, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = "rgba(255,255,230,0.55)"; c.lineWidth = 2; c.beginPath(); c.ellipse(160, 50, 146, 37, 0, Math.PI * 1.05, Math.PI * 1.95); c.stroke();
+    });
+
+    this.add.image(320, 100, "bt-sky").setDepth(0).setScrollFactor(0.15);
+    this.add.image(320, HORIZON - 40, "bt-mountains").setDepth(0.2).setScrollFactor(0.3);
+    this.add.image(320, HORIZON - 26, "bt-hills").setDepth(0.4).setScrollFactor(0.55);
+    this.add.image(320, HORIZON, "bt-ground").setOrigin(0.5, 0).setDepth(0.6);
+    // Sunlight shafts drifting over the field.
+    const shafts = this.add.graphics().setDepth(0.7).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.12);
+    for (let i = 0; i < 4; i++) shafts.fillStyle(0xfff6d0, 1).fillTriangle(560 + i * 40, 0, 300 + i * 90, PANEL_Y, 360 + i * 90, PANEL_Y);
+    this.tweens.add({ targets: shafts, alpha: 0.05, duration: 3200, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    this.add.image(FOE.x, FOE.y + 8, "bt-platform").setDepth(0.8).setScale(0.82, 0.7);
+    this.add.image(PLAYER.x, PLAYER.y + 8, "bt-platform").setDepth(0.8).setScale(1.02, 0.82);
+    // Drifting clouds on their own slow parallax layer.
+    for (let i = 0; i < 4; i++) {
+      const c = this.add.graphics().setDepth(0.1).setScrollFactor(0.2);
+      c.fillStyle(0xffffff, 0.85).fillEllipse(0, 0, 80, 18).fillEllipse(22, -8, 50, 20).fillEllipse(-20, -4, 40, 14);
+      c.fillStyle(0xd8ecff, 0.6).fillEllipse(4, 6, 80, 8);
+      c.setPosition(80 + i * 190, 24 + (i % 2) * 22);
+      this.tweens.add({ targets: c, x: c.x + 70, duration: 10000 + i * 2400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
     }
   }
 
   private drawMessageBox() {
+    this.msgRoot = this.add.container(0, 0).setDepth(40);
     const g = this.add.graphics().setDepth(40);
     g.fillStyle(0x283040, 1).fillRect(0, PANEL_Y, W, H - PANEL_Y);
     g.fillStyle(0xd06048, 1).fillRoundedRect(6, PANEL_Y + 6, W - 12, H - PANEL_Y - 12, 8);
@@ -333,6 +495,198 @@ export class BattleScene extends Phaser.Scene {
     this.tweens.add({ targets: this.msgArrow, y: H - 40, yoyo: true, repeat: -1, duration: 300 });
     const zone = this.add.zone(0, PANEL_Y, W, H - PANEL_Y).setOrigin(0, 0).setDepth(42).setInteractive();
     zone.on("pointerdown", () => { if (this.awaitingText) this.emit("ok"); });
+    this.msgRoot.add([g, this.msg, this.msgArrow, zone]);
+  }
+
+  /* ------------------------------------------------------------ */
+  /* Energy / Surge / Mark HUD                                    */
+  /* ------------------------------------------------------------ */
+
+  private makeHud(x: number, y: number): Hud {
+    const root = this.add.container(x, y).setDepth(20);
+    const g = this.add.graphics();
+    g.fillStyle(0x101824, 0.82).fillRoundedRect(0, 0, 270, 16, 6);
+    g.lineStyle(1, 0x5878a8, 0.8).strokeRoundedRect(0, 0, 270, 16, 6);
+    const nl = this.text(5, -3, "NL", 16, "#7fe6ff", true);
+    const pips = Array.from({ length: ENERGY_MAX }, (_, i) => this.add.rectangle(26 + i * 15, 4, 12, 8, 0x203040).setOrigin(0, 0));
+    const label = this.text(182, -3, "BP", 16, "#ffcf6a", true);
+    const barBg = this.add.rectangle(204, 5, 60, 6, 0x302418).setOrigin(0, 0);
+    const surge = this.add.rectangle(204, 5, 0, 6, 0xffb030).setOrigin(0, 0);
+    root.add([g, nl, ...pips, label, barBg, surge]);
+    return { root, pips, surge, surgeW: 60, label };
+  }
+
+  private setEnergy(side: Side, energy: number, surge: number) {
+    const h = this.hud[side];
+    h.pips.forEach((p, i) => p.setFillStyle(i < energy ? (i >= 8 ? 0xb0f4ff : 0x38d0ff) : 0x203040));
+    const f = Math.max(0, Math.min(1, surge / SURGE_MAX));
+    this.tweens.add({ targets: h.surge, width: h.surgeW * f, duration: 260 });
+    const ready = f >= 1;
+    if (ready && !h.glow) {
+      h.label.setText("BP!").setColor("#fff2a0");
+      h.surge.setFillStyle(0xfff0a0);
+      h.glow = this.tweens.add({ targets: [h.surge, h.label], alpha: 0.45, duration: 320, yoyo: true, repeat: -1 });
+      if (side === "player" && !session.hasFlag("tut:surge")) {
+        session.setFlag("tut:surge");
+        void this.popText(this.center(this.playerSprite), "TUYỆT KỸ SẴN SÀNG!", 0xffe070, 26);
+      }
+    } else if (!ready && h.glow) {
+      h.glow.stop(); h.glow = undefined;
+      h.label.setText("BP").setColor("#ffcf6a").setAlpha(1);
+      h.surge.setFillStyle(0xffb030).setAlpha(1);
+    }
+  }
+
+  private makeMarkIcon(x: number, y: number) {
+    const c = this.add.container(x, y).setDepth(33).setVisible(false);
+    const g = this.add.graphics();
+    const glyph = this.add.text(0, -2, "", { fontFamily: "serif", fontSize: "22px", color: "#ffffff", stroke: "#000000", strokeThickness: 3 }).setOrigin(0.5).setResolution(2);
+    const label = this.text(0, 14, "", 15, "#ffffff", true).setOrigin(0.5, 0);
+    c.add([g, glyph, label]);
+    c.setData({ g, glyph, label });
+    return c;
+  }
+
+  private setMark(side: Side, mark: Element | null, turns: number) {
+    const c = this.markIcon[side];
+    if (!mark) {
+      if (c.visible) this.tweens.add({ targets: c, scale: 1.6, alpha: 0, duration: 200, onComplete: () => c.setVisible(false).setScale(1).setAlpha(1) });
+      return;
+    }
+    const info = ELEMENT_INFO[mark];
+    const g = c.getData("g") as Phaser.GameObjects.Graphics;
+    g.clear().fillStyle(0x0c1018, 0.85).fillCircle(0, 0, 17).lineStyle(3, info.color, 1).strokeCircle(0, 0, 17);
+    (c.getData("glyph") as Phaser.GameObjects.Text).setText(info.glyph).setColor(info.css);
+    (c.getData("label") as Phaser.GameObjects.Text).setText(`ẤN ${info.name.toUpperCase()} ·${turns}`);
+    if (!c.visible) { c.setVisible(true).setScale(0); this.tweens.add({ targets: c, scale: 1, duration: 260, ease: "Back.easeOut" }); }
+  }
+
+  /** Floating damage number, bigger and gold on crits / super-effective hits. */
+  private popDamage(side: Side, damage: number, crit: boolean, eff: number) {
+    if (damage <= 0) return;
+    const s = side === "player" ? this.playerSprite : this.foeSprite, c = this.center(s);
+    const color = crit ? 0xffd040 : eff > 1 ? 0xff8a4a : eff < 1 ? 0xb8c0d0 : 0xffffff;
+    void this.popText({ x: c.x + Phaser.Math.Between(-20, 20), y: c.y - 10 }, `${damage}${crit ? "!" : ""}`, color, crit || eff > 1 ? 34 : 28);
+  }
+
+  private async popText(p: { x: number; y: number }, text: string, color: number, size = 28) {
+    const t = this.add.text(p.x, p.y, text, {
+      fontFamily: UI_FONT, fontSize: `${size}px`, color: "#" + color.toString(16).padStart(6, "0"), stroke: "#101018", strokeThickness: 5,
+    }).setOrigin(0.5).setResolution(2).setDepth(62).setScale(0.4);
+    await this.tween({ targets: t, scale: 1.15, y: p.y - 24, duration: 160, ease: "Back.easeOut" });
+    await this.tween({ targets: t, scale: 1, y: p.y - 46, alpha: 0, duration: 620, delay: 240 });
+    t.destroy();
+  }
+
+  /** Reaction name slammed onto the screen with an extruded 3D look. */
+  private async reactionBanner(side: Side, name: string, color: number) {
+    const s = side === "player" ? this.playerSprite : this.foeSprite, c = this.center(s);
+    const ring = this.add.image(c.x, c.y, "vfx-ring").setTint(color).setBlendMode(Phaser.BlendModes.ADD).setDepth(40).setScale(0.2);
+    this.tween({ targets: ring, scale: 2.4, alpha: 0, duration: 520 }).then(() => ring.destroy());
+    this.cameras.main.flash(120, (color >> 16) & 255, (color >> 8) & 255, color & 255, true);
+    const box = this.add.container(320, 112).setDepth(500);
+    this.uiLayer.add(box);
+    const css = "#" + color.toString(16).padStart(6, "0");
+    for (let i = 5; i >= 1; i--) {
+      const shade = Phaser.Display.Color.IntegerToColor(color).darken(25 + i * 8).color;
+      box.add(this.add.text(i * 1.4, i * 1.4, name, { fontFamily: UI_FONT, fontSize: "44px", color: "#" + shade.toString(16).padStart(6, "0") }).setOrigin(0.5).setResolution(2));
+    }
+    box.add(this.add.text(0, 0, name, { fontFamily: UI_FONT, fontSize: "44px", color: "#ffffff", stroke: css, strokeThickness: 5 }).setOrigin(0.5).setResolution(2));
+    box.add(this.text(0, -36, "PHẢN ỨNG NGUYÊN TỐ", 18, css, true).setOrigin(0.5));
+    box.setScale(2.2).setAlpha(0);
+    await this.tween({ targets: box, scale: 1, alpha: 1, duration: 180, ease: "Back.easeOut" });
+    this.cameras.main.shake(160, 0.008);
+    await this.wait(520);
+    await this.tween({ targets: box, alpha: 0, y: 92, duration: 200 });
+    box.destroy();
+  }
+
+  private async guardFx(side: Side) {
+    const s = side === "player" ? this.playerSprite : this.foeSprite, c = this.center(s);
+    const ADD = Phaser.BlendModes.ADD;
+    const dome = this.add.image(c.x, c.y + 10, "vfx-ring").setTint(0x7fd8ff).setBlendMode(ADD).setDepth(34).setScale(0.3, 0.3);
+    const disc = this.add.image(0, 0, "vfx-circle").setTint(0x7fd8ff).setBlendMode(ADD);
+    const floor = this.add.container(s.x, s.y - 4, [disc]).setDepth(4.8).setScale(0.1, 0.03);
+    await Promise.all([
+      this.tween({ targets: dome, scaleX: 1.2, scaleY: 1.3, duration: 260, ease: "Back.easeOut" }),
+      this.tween({ targets: floor, scaleX: 0.85, scaleY: 0.25, duration: 300, ease: "Back.easeOut" }),
+      this.tween({ targets: disc, angle: 90, duration: 300 }),
+    ]);
+    await this.wait(220);
+    await this.tween({ targets: [dome, floor], alpha: 0, duration: 260 });
+    dome.destroy(); floor.destroy();
+  }
+
+  /* ------------------------------------------------------------ */
+  /* Rhythm check (timing QTE)                                    */
+  /* ------------------------------------------------------------ */
+
+  /** A ring shrinks onto the foe; confirm when it overlaps the white circle. Returns the damage multiplier. */
+  private async timingCheck(): Promise<number> {
+    this.clearUi();
+    const c = this.center(this.foeSprite), R0 = 120, TARGET = 34, DUR = 950;
+    const target = this.add.circle(c.x, c.y, TARGET).setStrokeStyle(3, 0xffffff, 0.95).setDepth(60);
+    const zoneRing = this.add.circle(c.x, c.y, TARGET).setStrokeStyle(16, 0xffffff, 0.12).setDepth(60);
+    const ring = this.add.circle(c.x, c.y, R0).setStrokeStyle(5, 0xffe060, 1).setDepth(60);
+    const hint = this.text(c.x, c.y + TARGET + 22, "Z / CHẠM!", 20, "#ffffff", true).setOrigin(0.5).setDepth(60);
+    this.msg.setWordWrapWidth(580).setText("Nhấn Z đúng lúc vòng vàng chạm vòng trắng!");
+    const t0 = this.time.now;
+    let pressedAt = -1;
+    this.qteActive = true;
+    const shrink = this.tweens.add({ targets: ring, radius: 0, duration: DUR, onUpdate: () => ring.setStrokeStyle(5, Math.abs(ring.radius - TARGET) <= 7 ? 0x80ff90 : 0xffe060, 1) });
+    await new Promise<void>((res) => {
+      const handler = (i: Input) => {
+        if (i === "ok" || (typeof i === "object" && "pick" in i)) { pressedAt = this.time.now; res(); } else this.waiter = handler;
+      };
+      this.waiter = handler;
+      this.time.delayedCall(DUR, () => { if (this.waiter === handler) this.waiter = null; res(); });
+    });
+    this.qteActive = false;
+    shrink.stop();
+    const r = pressedAt < 0 ? -999 : R0 * (1 - (pressedAt - t0) / DUR);
+    const diff = Math.abs(r - TARGET);
+    const [mult, label, color] = diff <= 7 ? [1.3, "HOÀN HẢO!", 0x80ff90] : diff <= 18 ? [1.15, "TỐT!", 0xffe060] : [1, pressedAt < 0 ? "BỎ LỠ" : "LỆCH NHỊP", 0xb0b8c8];
+    if (mult > 1) {
+      const burst = this.add.circle(c.x, c.y, TARGET, color, 0.35).setDepth(60);
+      this.tween({ targets: burst, scale: 2.4, alpha: 0, duration: 300 }).then(() => burst.destroy());
+    }
+    void this.popText({ x: c.x, y: c.y - 50 }, label, color, mult >= 1.3 ? 32 : 26);
+    await this.tween({ targets: [target, zoneRing, ring, hint], alpha: 0, duration: 160 });
+    [target, zoneRing, ring, hint].forEach((o) => o.destroy());
+    this.msg.setText("");
+    return mult;
+  }
+
+  /* ------------------------------------------------------------ */
+  /* Bond (capture)                                               */
+  /* ------------------------------------------------------------ */
+
+  private async bondMenu(): Promise<PlayerAction | null> {
+    const bag = this.data_.setup.bag;
+    const owned = CRYSTALS.filter((id) => bag.count(id) > 0);
+    if (!owned.length) { await this.say("Bạn không còn Pha Lê Kết Nối! Mua thêm ở quầy của cô Hạnh."); return null; }
+    this.clearUi();
+    this.overlay(0x203048, 0.96);
+    this.panel(96, 30, 448, 60 + owned.length * 40);
+    this.ui.add(this.text(118, 40, "KẾT NỐI · Chọn pha lê", 28));
+    const buttons = owned.map((id, i) => {
+      const pct = Math.round(this.engine.bondOdds(id) * 100);
+      return this.listButton(110, 80 + i * 40, 420, 36, i, getItem(id)!.name, `×${bag.count(id)} · ${pct}%`);
+    });
+    this.panel(16, 296, 456, 88);
+    this.ui.add(this.text(36, 306, "Tỉ lệ hiện tại. Giữ đúng 3 nhịp đồng điệu để tăng thêm tới +75% sức kết nối!", 22).setWordWrapWidth(420));
+    this.backButton(480, 322);
+    const r = await this.choose(buttons, 1, 0);
+    this.clearUi();
+    if (r === null) return null;
+    const id = owned[r];
+    let bonus = 1;
+    for (let i = 0; i < 3; i++) {
+      const m = await this.timingCheck();
+      bonus += m >= 1.3 ? 0.25 : m >= 1.15 ? 0.12 : 0;
+    }
+    await this.say(`Độ đồng điệu ×${bonus.toFixed(2)} · Tỉ lệ kết nối ${Math.round(this.engine.bondOdds(id, bonus) * 100)}%`, 1100);
+    return { type: "bond", itemId: id, bonus };
   }
 
   private makeInfoBox(x: number, y: number, player: boolean): InfoBox {
@@ -358,6 +712,9 @@ export class BattleScene extends Phaser.Scene {
       box.exp = this.add.rectangle(55, h - 14, 0, 5, 0x58a8f0).setOrigin(0, 0);
       box.expW = w - 72;
       root.add([box.hpText, this.text(16, h - 24, "EXP", 16, "#4888c8"), box.exp]);
+    } else {
+      box.caught = this.add.text(16, 40, "● ĐÃ BẮT", { fontFamily: UI_FONT, fontSize: "17px", color: "#e04848" }).setResolution(2).setVisible(false);
+      root.add(box.caught);
     }
     return box;
   }
@@ -368,6 +725,7 @@ export class BattleScene extends Phaser.Scene {
     box.level.setText(`Lv${v.level}`);
     this.drawHp(box, v.hp, v.maxHp);
     this.setStatus(box, v.status);
+    if (box.caught) box.caught.setVisible(!v.status && Boolean(this.data_.setup.hasCaught?.(v.speciesId)));
     if (box.exp && box.expW) box.exp.width = box.expW * v.expFrac;
   }
 
@@ -415,6 +773,7 @@ export class BattleScene extends Phaser.Scene {
     sprite.setTexture(v.shiny ? shinyKey(this, v.speciesId, view) : spriteKey(v.speciesId, view)).setFlipX(side === "player" && !back);
     sprite.setPosition(home.x, home.y).setAlpha(1).clearTint();
     this.setView(box, v);
+    this.setMark(side, null, 0);
 
     if (side === "foe" && !this.engine.isTrainer && !this.foeTrainer && !sprite.visible) {
       // Wild Pokémon slide in across the field
@@ -432,6 +791,8 @@ export class BattleScene extends Phaser.Scene {
       await this.tween({ targets: sprite, scale, duration: 280, ease: "Back.easeOut" });
       sprite.clearTint();
     }
+    this.shadows[side].setVisible(true).setScale(0.2);
+    this.tween({ targets: this.shadows[side], scale: 1, duration: 220 });
     if (v.shiny) await this.shinySparkle(sprite);
     await this.tween({ targets: box.root, alpha: 1, x: box.root.x, duration: 200 });
     this.startIdle(side);
@@ -452,18 +813,19 @@ export class BattleScene extends Phaser.Scene {
     this.playerSprite.setTintFill(0xff6060);
     await this.tween({ targets: this.playerSprite, scale: 0, duration: 260 });
     this.playerSprite.setVisible(false).clearTint();
+    this.shadows.player.setVisible(false);
     await this.tween({ targets: this.playerBox.root, alpha: 0, duration: 150 });
   }
 
+  /** Bond crystal: a faceted floating gem (replaces thrown capture devices). */
   private drawBall(ballId: string) {
-    const [top, bottom] = BALL_COLORS[ballId] ?? BALL_COLORS["poke-ball"];
+    const [core, glow] = CRYSTAL_COLORS[ballId] ?? CRYSTAL_COLORS["poke-ball"];
     const g = this.add.graphics();
-    g.fillStyle(0x202020, 1).fillCircle(0, 0, 10);
-    g.fillStyle(bottom, 1).fillCircle(0, 0, 8);
-    g.fillStyle(top, 1); g.beginPath(); g.slice(0, 0, 8, Math.PI, 0, false); g.fillPath();
-    g.fillStyle(0x202020, 1).fillRect(-8, -1, 16, 2);
-    g.fillStyle(0xf8f8f8, 1).fillCircle(0, 0, 3);
-    g.fillStyle(0xffffff, 0.8).fillRect(-5, -6, 3, 2);
+    g.fillStyle(glow, 0.35).fillCircle(0, 0, 13);
+    g.fillStyle(core, 1).fillPoints([new Phaser.Math.Vector2(0, -13), new Phaser.Math.Vector2(8, -2), new Phaser.Math.Vector2(0, 13), new Phaser.Math.Vector2(-8, -2)], true);
+    g.fillStyle(glow, 1).fillPoints([new Phaser.Math.Vector2(0, -13), new Phaser.Math.Vector2(-8, -2), new Phaser.Math.Vector2(0, 2)], true);
+    g.fillStyle(0xffffff, 0.9).fillPoints([new Phaser.Math.Vector2(0, -13), new Phaser.Math.Vector2(3, -4), new Phaser.Math.Vector2(0, -1)], true);
+    g.lineStyle(1.5, 0x102030, 0.8).strokePoints([new Phaser.Math.Vector2(0, -13), new Phaser.Math.Vector2(8, -2), new Phaser.Math.Vector2(0, 13), new Phaser.Math.Vector2(-8, -2)], true);
     return g;
   }
 
@@ -515,7 +877,10 @@ export class BattleScene extends Phaser.Scene {
     const user = side === "player" ? this.playerSprite : this.foeSprite;
     const target = side === "player" ? this.foeSprite : this.playerSprite;
     this.stopIdle(side);
-    await this.fx.play(move, side, user, target);
+    const big = move.power >= 60 || move.id.startsWith("ult-");
+    if (big) this.tweens.add({ targets: this.hudGroup, alpha: 0.12, duration: 180 });
+    try { await this.fx.play(move, side, user, target); }
+    finally { if (big) this.tweens.add({ targets: this.hudGroup, alpha: 1, duration: 220 }); }
     this.startIdle(side);
   }
 
@@ -568,40 +933,52 @@ export class BattleScene extends Phaser.Scene {
     this.stopIdle(side);
     await this.tween({ targets: s, y: s.y + 80, alpha: 0, duration: 420, ease: "Quad.easeIn" });
     s.setVisible(false);
+    this.shadows[side].setVisible(false);
+    this.setMark(side, null, 0);
     await this.tween({ targets: box.root, alpha: 0, duration: 150 });
   }
 
   private async catchAnim(ballId: string, shakes: number, caught: boolean) {
     this.stopIdle("foe");
-    const ball = this.add.container(110, 250, [this.drawBall(ballId)]).setDepth(35);
-    const tx = this.foeSprite.x, ty = this.foeSprite.y - 70, t = { v: 0 };
-    await this.tween({ targets: t, v: 1, duration: 560, onUpdate: () => {
-      ball.x = Phaser.Math.Linear(110, tx, t.v);
-      ball.y = Phaser.Math.Linear(250, ty, t.v) - Math.sin(t.v * Math.PI) * 130;
-      ball.rotation = t.v * 12;
-    } });
-    ball.rotation = 0;
-    this.foeSprite.setTintFill(0xffffff);
-    await this.tween({ targets: this.foeSprite, scale: 0, y: ty + 10, duration: 260 });
-    await this.tween({ targets: ball, y: FOE.y - 12, duration: 320, ease: "Bounce.easeOut" });
+    const ADD = Phaser.BlendModes.ADD;
+    const [core] = CRYSTAL_COLORS[ballId] ?? CRYSTAL_COLORS["poke-ball"];
+    const home = { x: FOE.x, y: FOE.y - 70 };
+    const gem = this.add.container(PLAYER.x + 40, PLAYER.y - 120, [this.drawBall(ballId)]).setDepth(35).setScale(1.4);
+    // Float up from the trainer, then glide over the foe.
+    await this.tween({ targets: gem, x: home.x, y: home.y - 40, duration: 620, ease: "Sine.easeInOut" });
+    // Light tether + the foe dissolving into the crystal.
+    const tether = this.add.graphics().setDepth(34).setBlendMode(ADD);
+    tether.lineStyle(10, core, 0.35).lineBetween(gem.x, gem.y, home.x, home.y + 30).lineStyle(3, 0xffffff, 1).lineBetween(gem.x, gem.y, home.x, home.y + 30);
+    this.foeSprite.setTintFill(core);
+    await this.tween({ targets: this.foeSprite, scale: 0, alpha: 0.4, duration: 380, ease: "Cubic.easeIn" });
+    tether.destroy();
+    this.shadows.foe.setVisible(false);
+    await this.tween({ targets: gem, y: FOE.y - 26, duration: 300, ease: "Bounce.easeOut" });
+    // Each successful check = one pulse of light.
     for (let i = 0; i < shakes; i++) {
-      await this.wait(320);
-      await this.tween({ targets: ball, angle: 24, duration: 100, yoyo: true });
-      await this.tween({ targets: ball, angle: -24, duration: 100, yoyo: true });
+      await this.wait(260);
+      const ring = this.add.image(gem.x, gem.y, "vfx-ring").setTint(core).setBlendMode(ADD).setDepth(36).setScale(0.1, 0.04);
+      this.tween({ targets: ring, scaleX: 0.9, scaleY: 0.3, alpha: 0, duration: 420 }).then(() => ring.destroy());
+      await this.tween({ targets: gem, scale: 1.7, duration: 110, yoyo: true });
     }
-    await this.wait(350);
+    await this.wait(320);
     if (caught) {
-      for (let i = 0; i < 3; i++) {
-        const star = this.particle("fx-star", ball.x, ball.y - 6, 0xf8d030, 36).setScale(0.3);
-        this.tweens.add({ targets: star, x: ball.x + (i - 1) * 34, y: ball.y - 46, alpha: 0, duration: 650, onComplete: () => star.destroy() });
+      for (let i = 0; i < 10; i++) {
+        const star = this.particle("fx-star", gem.x, gem.y - 6, i % 2 ? core : 0xffffff, 36).setScale(0.3);
+        const a = (i / 10) * Math.PI * 2;
+        this.tweens.add({ targets: star, x: gem.x + Math.cos(a) * 60, y: gem.y + Math.sin(a) * 30 - 20, alpha: 0, duration: 650, onComplete: () => star.destroy() });
       }
-      await this.tween({ targets: ball, alpha: 0.75, duration: 300 });
-      this.time.delayedCall(1800, () => ball.destroy());
+      this.cameras.main.flash(200, 255, 255, 255, true);
+      await this.tween({ targets: gem, y: gem.y - 30, scale: 2, alpha: 0, duration: 700 });
+      gem.destroy();
     } else {
-      ball.destroy();
-      const flash = this.add.circle(FOE.x, FOE.y - 30, 8, 0xffffff).setDepth(36);
-      this.tweens.add({ targets: flash, scale: 5, alpha: 0, duration: 250, onComplete: () => flash.destroy() });
-      this.foeSprite.setY(FOE.y);
+      for (let i = 0; i < 8; i++) {
+        const shard = this.particle("fx-shard", gem.x, gem.y, core, 36);
+        this.tweens.add({ targets: shard, x: gem.x + Phaser.Math.Between(-60, 60), y: gem.y + Phaser.Math.Between(-50, 20), angle: 360, alpha: 0, duration: 420, onComplete: () => shard.destroy() });
+      }
+      gem.destroy();
+      this.foeSprite.setPosition(FOE.x, FOE.y).setAlpha(1);
+      this.shadows.foe.setVisible(true);
       await this.tween({ targets: this.foeSprite, scale: FOE_SCALE, duration: 240, ease: "Back.easeOut" });
       this.foeSprite.clearTint();
       this.startIdle("foe");
@@ -630,20 +1007,27 @@ export class BattleScene extends Phaser.Scene {
 
   private async actionMenu(): Promise<number> {
     this.clearUi();
-    this.msg.setWordWrapWidth(300).setText(`${displayName(this.engine.playerMon)} sẽ làm gì?`);
-    const defs: [string, number][] = [["ĐÁNH", 0xe05050], ["TÚI", 0xe8a030], ["POKéMON", 0x48a848], ["CHẠY", 0x4878d8]];
-    const bw = 128, bh = 44;
-    const buttons = defs.map(([label, col], i) => {
-      const x = 362 + (i % 2) * (bw + 8), y = PANEL_Y + 12 + Math.floor(i / 2) * (bh + 8);
-      const t = this.text(bw / 2, bh / 2 - 1, label, 28, "#ffffff", true).setOrigin(0.5);
-      return this.button(x, y, bw, bh, i, (g, f) => {
+    this.msg.setWordWrapWidth(190).setText(`${displayName(this.engine.playerMon)} sẽ làm gì?`);
+    const ready = this.engine.surgeReady("player");
+    const defs: [string, number, boolean][] = [
+      ["ĐÁNH", 0xe05050, true], ["THỦ", 0x3898c8, true], [ready ? "TUYỆT KỸ" : `BP ${Math.floor(this.engine.surge("player"))}%`, ready ? 0xf0a020 : 0x6a6050, true], ["TÚI", 0xe8a030, true],
+      ["ĐỔI", 0x48a848, true], ["KẾT NỐI", 0x9060d8, !this.engine.isTrainer], ["CHẠY", 0x4878d8, !this.engine.isTrainer],
+    ];
+    const bw = 94, bh = 44;
+    const buttons = defs.map(([label, col, enabled], i) => {
+      const x = 236 + (i % 4) * (bw + 4), y = PANEL_Y + 12 + Math.floor(i / 4) * (bh + 8);
+      const t = this.text(bw / 2, bh / 2 - 1, label, label.length > 6 ? 21 : 26, "#ffffff", true).setOrigin(0.5);
+      const b = this.button(x, y, bw, bh, i, (g, f) => {
         g.fillStyle(darken(col, 30), 1).fillRoundedRect(0, 2, bw, bh, 10);
         g.fillStyle(f ? lighten(col, 12) : col, 1).fillRoundedRect(0, 0, bw, bh - 2, 10);
         g.fillStyle(0xffffff, 0.22).fillRoundedRect(4, 3, bw - 8, 12, 6);
         if (f) g.lineStyle(3, 0xffffff, 1).strokeRoundedRect(1, 1, bw - 2, bh - 4, 9);
       }, [t]);
+      if (!enabled) b.root.setAlpha(0.45);
+      if (i === 2 && ready) this.tweens.add({ targets: b.root, alpha: 0.7, duration: 360, yoyo: true, repeat: -1 });
+      return b;
     });
-    const r = await this.choose(buttons, 2, this.lastAction, false);
+    const r = await this.choose(buttons, 4, this.lastAction, false);
     this.lastAction = r ?? 0;
     this.clearUi();
     return r ?? 0;
@@ -658,20 +1042,32 @@ export class BattleScene extends Phaser.Scene {
     this.ui.add(g);
     this.panel(458, PANEL_Y + 6, 176, H - PANEL_Y - 12);
     const bw = 218, bh = 46;
+    const foeTypes = getSpecies(this.engine.foeMon.speciesId).types;
+    const effTag = (eff: number) => (eff >= 4 ? "4×" : eff >= 2 ? "2×" : eff === 0 ? "0×" : eff <= 0.25 ? "¼×" : eff < 1 ? "½×" : "");
     const buttons = mon.moves.map((m, i) => {
       const d = getMove(m.id), col = hex(TYPE_COLORS[d.type] ?? "#a8a878");
+      const eff = d.power ? effectiveness(d.type, foeTypes) : 1;
+      const badgeText = effTag(eff);
       const x = 10 + (i % 2) * (bw + 6), y = PANEL_Y + 8 + Math.floor(i / 2) * (bh + 6);
       const name = this.text(12, 3, d.name, 23, "#ffffff", true);
-      const detail = this.text(12, 25, `${TYPE_VI[d.type]} · ${d.power ? (categoryOf(d.type) === "physical" ? "VẬT LÝ" : "ĐẶC BIỆT") : "TRẠNG THÁI"}${d.power ? ` · ${d.power} POW` : ""}`, 15, "#fff0b8", true);
-      const pp = this.text(bw - 10, 25, `PP ${m.pp}/${m.maxPp}`, 16, m.pp === 0 ? "#ffd0d0" : "#ffffff", true).setOrigin(1, 0);
+      const el = elementOf(d), cost = energyCost(d), affordable = cost <= this.engine.energy("player");
+      const reaction = d.power ? this.engine.previewReaction(d.id) : null;
+      const detail = this.text(12, 25, reaction ? `→ ${reaction.name} ×${reaction.mult}` : `${el ? ELEMENT_INFO[el].name.toUpperCase() : TYPE_VI[d.type]} · ${d.power ? `${d.power} POW` : "TRẠNG THÁI"}`, 15, reaction ? "#fff36a" : "#fff0b8", true);
+      const pp = this.text(bw - 10, 25, cost ? `NL ${cost}` : "MIỄN PHÍ", 16, affordable ? "#bff4ff" : "#ffb0b0", true).setOrigin(1, 0);
+      const kids: Phaser.GameObjects.GameObject[] = [name, detail, pp];
+      if (badgeText) {
+        const bCol = eff > 1 ? "#ffe066" : eff === 0 ? "#b8b8c0" : "#ffb0a0";
+        kids.push(this.text(bw - 10, 3, badgeText, 18, bCol, true).setOrigin(1, 0));
+      }
       const b = this.button(x, y, bw, bh, i, (gr, f) => {
         gr.fillStyle(darken(col, 35), 1).fillRoundedRect(0, 2, bw, bh, 9);
         gr.fillStyle(f ? lighten(col, 8) : darken(col, 8), 1).fillRoundedRect(0, 0, bw, bh - 2, 9);
         gr.fillStyle(0xffffff, 0.2).fillRoundedRect(4, 3, bw - 8, 10, 5);
         if (f) gr.lineStyle(3, 0xffffff, 1).strokeRoundedRect(1, 1, bw - 2, bh - 4, 8);
-      }, [name, detail, pp]);
-      b.enabled = m.pp > 0;
-      if (!b.enabled) b.root.setAlpha(0.55);
+      }, kids);
+      b.enabled = affordable;
+      if (!b.enabled) b.root.setAlpha(0.5);
+      if (reaction && affordable) this.tweens.add({ targets: detail, alpha: 0.55, duration: 380, yoyo: true, repeat: -1 });
       return b;
     });
     // Info panel for the focused move
@@ -684,9 +1080,12 @@ export class BattleScene extends Phaser.Scene {
     this.ui.add(desc);
     const r = await this.choose(buttons, 2, Math.min(this.lastMove, buttons.length - 1), true, (i) => {
       const d = getMove(mon.moves[i].id);
+      const eff = d.power ? effectiveness(d.type, foeTypes) : 1;
+      const effDesc = eff > 1 ? " · RẤT HIỆU QUẢ!" : eff === 0 ? " · VÔ HIỆU" : eff < 1 ? " · KÉM HIỆU QUẢ" : "";
       typeChip.setText(TYPE_VI[d.type].toUpperCase()).setBackgroundColor(TYPE_COLORS[d.type] ?? "#a8a878");
-      cat.setText(d.power ? (categoryOf(d.type) === "physical" ? "Vật lý" : "Đặc biệt") : "Trạng thái");
-      pow.setText(d.power ? `Sức mạnh ${d.power} · ${d.accuracy ?? "—"}%` : d.accuracy ? `Chính xác ${d.accuracy}%` : "Luôn trúng");
+      cat.setText((d.power ? (categoryOf(d.type) === "physical" ? "Vật lý" : "Đặc biệt") : "Trạng thái") + effDesc);
+      const cost = energyCost(d);
+      pow.setText(`${d.power ? `${d.power} · ${d.accuracy ?? "—"}%` : d.accuracy ? `Chính xác ${d.accuracy}%` : "Luôn trúng"} · NL ${cost}`);
       desc.setText(d.desc).setPosition(12, PANEL_Y - desc.height - 6).setVisible(true);
     });
     this.clearUi();
@@ -716,7 +1115,7 @@ export class BattleScene extends Phaser.Scene {
 
   private async bagMenu(): Promise<PlayerAction | null> {
     const bag = this.data_.setup.bag;
-    const owned = Object.keys(ITEMS).filter((id) => bag.count(id) > 0 && ITEMS[id].category !== "evolution");
+    const owned = Object.keys(ITEMS).filter((id) => bag.count(id) > 0 && ITEMS[id].category !== "evolution" && ITEMS[id].category !== "ball");
     for (;;) {
       this.clearUi();
       this.overlay(0xc89040, 1);
@@ -736,7 +1135,6 @@ export class BattleScene extends Phaser.Scene {
       const r = await this.choose(buttons, 1, 0, true, (i) => desc.setText(getItem(owned[i])!.desc));
       if (r === null) { this.clearUi(); return null; }
       const id = owned[r], item = getItem(id)!;
-      if (item.category === "ball") { this.clearUi(); return { type: "item", itemId: id }; }
       const target = await this.pickPokemon(false, `Dùng ${item.name} cho Pokémon nào?`);
       if (target !== null) { this.clearUi(); return { type: "item", itemId: id, target }; }
     }

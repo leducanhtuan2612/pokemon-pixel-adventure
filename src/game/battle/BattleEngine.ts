@@ -8,9 +8,12 @@ import {
 } from "../core/pokemon";
 import { random, type RandomService } from "../services/RandomService";
 import type { CharacterLook } from "../world/types";
-import { chooseMove } from "./ai";
+import { AI_GUARD, AI_ULTIMATE, chooseMove } from "./ai";
 import {
-  accuracyMultiplier, calcDamage, catchShakes, effectiveSpeed, expYield, freshStages, type Stages,
+  ENERGY_MAX, ENERGY_REGEN, ENERGY_START, GUARD_ENERGY, SURGE_MAX, elementOf, energyCost, reactionFor, ultimateFrom, type Element,
+} from "./elements";
+import {
+  accuracyMultiplier, bondChance, calcDamage, catchShakes, effectiveSpeed, expYield, freshStages, ultimateEff, type Stages,
 } from "./formulas";
 
 export type Side = "player" | "foe";
@@ -25,7 +28,7 @@ export interface MonView {
 export type BattleEvent =
   | { kind: "text"; text: string }
   | { kind: "move"; side: Side; move: MoveData }
-  | { kind: "hit"; side: Side; eff: number }
+  | { kind: "hit"; side: Side; eff: number; damage?: number; crit?: boolean }
   | { kind: "hp"; side: Side; hp: number; maxHp: number }
   | { kind: "status"; side: Side; status: StatusCondition | null }
   | { kind: "stat"; side: Side; up: boolean }
@@ -36,12 +39,22 @@ export type BattleEvent =
   | { kind: "exp"; uid: string; from: number; to: number }
   | { kind: "levelUp"; uid: string; mon: MonView }
   | { kind: "learn"; uid: string; moveId: string }
+  | { kind: "energy"; side: Side; energy: number; surge: number }
+  | { kind: "mark"; side: Side; mark: Element | null; turns: number }
+  | { kind: "reaction"; side: Side; name: string; color: number }
+  | { kind: "guard"; side: Side }
+  | { kind: "ultimate"; side: Side; move: MoveData }
   | { kind: "end"; outcome: Outcome };
 
 export type PlayerAction =
-  | { type: "move"; index: number }
+  /** `timing` = damage multiplier earned in the rhythm check (1, 1.15 or 1.3). */
+  | { type: "move"; index: number; timing?: number }
+  | { type: "ultimate"; timing?: number }
+  | { type: "guard" }
   | { type: "switch"; index: number }
   | { type: "item"; itemId: string; target?: number }
+  /** Bond (capture) with a crystal; `bonus` multiplies its strength (rhythm minigame). */
+  | { type: "bond"; itemId: string; bonus: number }
   | { type: "run" };
 
 export interface BattleSetup {
@@ -57,14 +70,21 @@ export interface BattleSetup {
   onCaught(mon: PokemonInstance): "party" | "box";
   onSeen(speciesId: string): void;
   onEvolved?(speciesId: string): void;
+  hasCaught?(speciesId: string): boolean;
+  /** Boss battles: the foe starts with half a Surge gauge and always plays smart. */
+  boss?: boolean;
   rng?: RandomService;
 }
 
 interface Battler {
   mon: PokemonInstance; stages: Stages; flinched: boolean; fainted: boolean;
   confused: number; seeded: boolean; protecting: boolean; focus: boolean; turns: number;
+  mark: Element | null; markTurns: number; guarding: boolean; protectChain: number;
 }
-interface SideState { reflect: number; lightscreen: number }
+/** Energy and Surge belong to the side (trainer), so switching keeps them. */
+interface SideState { reflect: number; lightscreen: number; energy: number; surge: number }
+
+const FATIGUE_TURN = 40;
 
 const STAT_NAME: Record<Stat, string> = { atk: "Tấn công", def: "Phòng thủ", spa: "Tấn công Đ.biệt", spd: "Phòng thủ Đ.biệt", spe: "Tốc độ", acc: "Độ chính xác", eva: "Né tránh" };
 
@@ -97,6 +117,8 @@ export class BattleEngine {
   private f!: Battler;
   private participants = new Set<string>();
   private runAttempts = 0;
+  /** Turn counter; past FATIGUE_TURN the arena drains both sides so every battle ends. */
+  private turn = 0;
   private moved = new Set<Side>();
   private rng: RandomService;
 
@@ -117,6 +139,7 @@ export class BattleEngine {
     this.p = this.battler(lead);
     this.participants.add(lead.uid);
     this.setup.onSeen(firstFoe.speciesId);
+    if (this.setup.boss) this.sides.foe.surge = SURGE_MAX / 2;
     if (this.isTrainer) {
       ev.push({ kind: "text", text: `${this.setup.trainerName} muốn thách đấu!` });
       ev.push({ kind: "sendOut", side: "foe", mon: viewOf(firstFoe) });
@@ -127,7 +150,39 @@ export class BattleEngine {
     }
     ev.push({ kind: "text", text: `Tiến lên! ${displayName(lead)}!` });
     ev.push({ kind: "sendOut", side: "player", mon: viewOf(lead) });
+    ev.push(this.energyEvent("player"), this.energyEvent("foe"));
     return ev;
+  }
+
+  /* ------------------------------------------------------------ */
+  /* Queries for the UI                                           */
+  /* ------------------------------------------------------------ */
+
+  energy(s: Side) { return this.sides[s].energy; }
+  /** Dev/demo only: fill a side's Energy and Surge. */
+  debugCharge(s: Side) { this.sides[s].energy = ENERGY_MAX; this.sides[s].surge = SURGE_MAX; }
+  surge(s: Side) { return this.sides[s].surge; }
+  surgeReady(s: Side) { return this.sides[s].surge >= SURGE_MAX; }
+  markOf(s: Side) { const b = this.side(s); return b ? { mark: b.mark, turns: b.markTurns } : { mark: null, turns: 0 }; }
+  ultimateMove(s: Side) {
+    const mon = this.side(s).mon;
+    return ultimateFrom(mon.moves.map((m) => getMove(m.id)), getSpecies(mon.speciesId).types);
+  }
+  /** Odds shown before a bond attempt, so capture is legible instead of a gamble. */
+  bondOdds(itemId: string, bonus = 1) {
+    return bondChance(this.f.mon, (getItem(itemId)?.ball ?? 1) * bonus);
+  }
+  /** Reaction the given move would trigger on the current foe. */
+  previewReaction(moveId: string) {
+    const el = elementOf(getMove(moveId)), mark = this.f.mark;
+    return el && mark ? reactionFor(mark, el) : null;
+  }
+
+  private energyEvent(s: Side): BattleEvent {
+    return { kind: "energy", side: s, energy: this.sides[s].energy, surge: this.sides[s].surge };
+  }
+  private gainSurge(s: Side, amount: number) {
+    this.sides[s].surge = Math.max(0, Math.min(SURGE_MAX, this.sides[s].surge + amount));
   }
 
   /* ------------------------------------------------------------ */
@@ -137,10 +192,17 @@ export class BattleEngine {
   act(action: PlayerAction): BattleEvent[] {
     if (this.phase !== "action") return [];
     const ev: BattleEvent[] = [];
+    this.turn++;
     this.moved.clear();
     this.p.flinched = this.f.flinched = false;
     this.p.protecting = this.f.protecting = false;
-    const foeMove = chooseMove(this.rng, this.f.mon, this.f.stages, this.p.mon, this.isTrainer);
+    this.p.guarding = this.f.guarding = false;
+    const foeMove = chooseMove(this.rng, this.f.mon, this.f.stages, this.p.mon, this.isTrainer || !!this.setup.boss, {
+      energy: this.sides.foe.energy, surgeReady: this.surgeReady("foe"), targetMark: this.p.mark, threatReady: this.surgeReady("player"),
+    });
+    // Guarding always happens before anything else in the turn.
+    if (foeMove === AI_GUARD) this.guard("foe", ev);
+    const foeAct = () => { if (foeMove !== AI_GUARD) this.useMove("foe", foeMove, ev); };
 
     if (action.type === "run") {
       if (this.isTrainer) return [{ kind: "text", text: "Không thể bỏ chạy khỏi trận đấu với Trainer!" }];
@@ -152,33 +214,57 @@ export class BattleEngine {
         return this.finish(ev, "run");
       }
       ev.push({ kind: "text", text: "Không thể chạy thoát!" });
-      this.useMove("foe", foeMove, ev);
+      foeAct();
+    } else if (action.type === "guard") {
+      this.guard("player", ev);
+      foeAct();
     } else if (action.type === "switch") {
       const next = this.setup.playerParty[action.index];
       if (!next || next.hp <= 0 || next === this.p.mon) return [];
       ev.push({ kind: "text", text: `${displayName(this.p.mon)}, quay về!` }, { kind: "recall", side: "player" });
       this.switchIn(next, ev);
-      this.useMove("foe", foeMove, ev);
-    } else if (action.type === "item") {
-      const used = this.useItem(action.itemId, action.target ?? this.playerIndex, ev);
+      foeAct();
+    } else if (action.type === "item" || action.type === "bond") {
+      const used = action.type === "bond"
+        ? this.bond(action.itemId, action.bonus, ev)
+        : this.useItem(action.itemId, action.target ?? this.playerIndex, ev);
       if (!used) return ev;
       if ((this.phase as string) === "over") return ev;
-      this.useMove("foe", foeMove, ev);
+      foeAct();
     } else {
-      const pMove = this.p.mon.moves[action.index];
-      const pIdx = pMove && pMove.pp > 0 ? action.index : this.p.mon.moves.some((m) => m.pp > 0) ? -2 : -1;
-      if (pIdx === -2) return [{ kind: "text", text: "Chiêu này đã hết PP!" }];
-      const pPri = pIdx >= 0 ? getMove(pMove.id).priority ?? 0 : 0;
-      const fPri = foeMove >= 0 ? getMove(this.f.mon.moves[foeMove].id).priority ?? 0 : 0;
+      let pIdx: number;
+      if (action.type === "ultimate") {
+        if (!this.surgeReady("player")) return [{ kind: "text", text: "Thanh Bộc Phát chưa đầy!" }];
+        pIdx = AI_ULTIMATE;
+      } else {
+        const pMove = this.p.mon.moves[action.index];
+        if (!pMove) return [];
+        if (energyCost(getMove(pMove.id)) > this.sides.player.energy) return [{ kind: "text", text: "Không đủ Năng lượng! Hãy THỦ để tích năng lượng." }];
+        pIdx = action.index;
+      }
+      const timing = action.timing ?? 1;
+      const pri = (side: Side, idx: number) => idx === AI_ULTIMATE ? 1 : idx >= 0 ? getMove(this.side(side).mon.moves[idx].id).priority ?? 0 : 0;
+      const pPri = pri("player", pIdx), fPri = pri("foe", foeMove);
       const ps = effectiveSpeed(this.p.mon, this.p.stages), fs = effectiveSpeed(this.f.mon, this.f.stages);
       const playerFirst = pPri !== fPri ? pPri > fPri : ps !== fs ? ps > fs : this.rng.chance(0.5);
-      const order: [Side, number][] = playerFirst ? [["player", pIdx], ["foe", foeMove]] : [["foe", foeMove], ["player", pIdx]];
-      for (const [side, idx] of order) this.useMove(side, idx, ev);
+      if (playerFirst) { this.useMove("player", pIdx, ev, timing); foeAct(); }
+      else { foeAct(); this.useMove("player", pIdx, ev, timing); }
     }
 
     this.residual(ev);
     this.resolveFaints(ev);
     return ev;
+  }
+
+  /** THỦ: halve incoming damage this turn and bank extra energy. */
+  private guard(side: Side, ev: BattleEvent[]) {
+    const b = this.side(side), st = this.sides[side];
+    if (b.fainted) return;
+    b.guarding = true;
+    st.energy = Math.min(ENERGY_MAX, st.energy + GUARD_ENERGY);
+    this.gainSurge(side, 6);
+    this.moved.add(side);
+    ev.push({ kind: "guard", side }, { kind: "text", text: `${this.label(side)} vào thế THỦ và tích tụ năng lượng!` }, this.energyEvent(side));
   }
 
   /** After the active Pokémon faints the player must pick a replacement. */
@@ -219,9 +305,21 @@ export class BattleEngine {
   /* ------------------------------------------------------------ */
 
   private battler(mon: PokemonInstance): Battler {
-    return { mon, stages: freshStages(), flinched: false, fainted: mon.hp <= 0, confused: 0, seeded: false, protecting: false, focus: false, turns: 0 };
+    return {
+      mon, stages: freshStages(), flinched: false, fainted: mon.hp <= 0, confused: 0, seeded: false, protecting: false, focus: false, turns: 0,
+      mark: null, markTurns: 0, guarding: false, protectChain: 0,
+    };
   }
-  private sides: Record<Side, SideState> = { player: { reflect: 0, lightscreen: 0 }, foe: { reflect: 0, lightscreen: 0 } };
+  private sides: Record<Side, SideState> = {
+    player: { reflect: 0, lightscreen: 0, energy: ENERGY_START, surge: 0 },
+    foe: { reflect: 0, lightscreen: 0, energy: ENERGY_START, surge: 0 },
+  };
+
+  private setMark(s: Side, mark: Element | null, ev: BattleEvent[], turns = 3) {
+    const b = this.side(s);
+    b.mark = mark; b.markTurns = mark ? turns : 0;
+    ev.push({ kind: "mark", side: s, mark, turns: b.markTurns });
+  }
   private side(s: Side) { return s === "player" ? this.p : this.f; }
   private other(s: Side): Side { return s === "player" ? "foe" : "player"; }
   private label(s: Side) {
@@ -249,7 +347,7 @@ export class BattleEngine {
     ev.push({ kind: "faint", side: s }, { kind: "text", text: `${this.label(s)} đã gục ngã!` });
   }
 
-  private useMove(side: Side, index: number, ev: BattleEvent[]) {
+  private useMove(side: Side, index: number, ev: BattleEvent[], timing = 1) {
     const user = this.side(side), foeSide = this.other(side), target = this.side(foeSide);
     if (user.fainted || target.fainted || this.phase === "over") return;
     const name = this.label(side);
@@ -279,7 +377,7 @@ export class BattleEngine {
         if (this.rng.chance(0.5)) {
           const st = calcStats(user.mon);
           const dmg = Math.max(1, Math.floor(Math.floor((Math.floor((2 * user.mon.level) / 5) + 2) * 40 * st.atk / st.def) / 50) + 2);
-          ev.push({ kind: "text", text: "Nó tự tấn công chính mình trong lúc rối loạn!" }, { kind: "hit", side, eff: 1 });
+          ev.push({ kind: "text", text: "Nó tự tấn công chính mình trong lúc rối loạn!" }, { kind: "hit", side, eff: 1, damage: Math.min(user.mon.hp, dmg) });
           this.setHp(side, user.mon.hp - dmg, ev);
           this.checkFaint(side, ev);
           return;
@@ -291,11 +389,22 @@ export class BattleEngine {
       return;
     }
 
+    const st = this.sides[side];
+    const ultimate = index === AI_ULTIMATE;
     const slotRef = index >= 0 ? user.mon.moves[index] : undefined;
-    const move = slotRef ? getMove(slotRef.id) : STRUGGLE;
-    if (slotRef) slotRef.pp = Math.max(0, slotRef.pp - 1);
-    if (!slotRef) ev.push({ kind: "text", text: `${name} đã hết chiêu!` });
-    ev.push({ kind: "text", text: `${name} dùng ${move.name}!` });
+    const move = ultimate ? this.ultimateMove(side) : slotRef ? getMove(slotRef.id) : STRUGGLE;
+    if (ultimate) {
+      st.surge = 0;
+      ev.push({ kind: "ultimate", side, move }, this.energyEvent(side), { kind: "text", text: `${name} giải phóng TUYỆT KỸ: ${move.name}!` });
+    } else {
+      const cost = energyCost(move);
+      if (cost > st.energy) { ev.push({ kind: "text", text: `${name} không đủ năng lượng!` }); return; }
+      st.energy -= cost;
+      if (cost) ev.push(this.energyEvent(side));
+      if (!slotRef) ev.push({ kind: "text", text: `${name} đã hết chiêu!` });
+      ev.push({ kind: "text", text: `${name} dùng ${move.name}!` });
+    }
+    if (!move.protect) user.protectChain = 0;
     const firstTurn = user.turns === 0;
     user.turns++;
 
@@ -316,17 +425,27 @@ export class BattleEngine {
     ev.push({ kind: "move", side, move });
 
     const damaging = move.power > 0 || move.fixedDamage !== undefined || move.ohko;
-    if (!damaging) { this.statusMove(side, move, ev); return; }
+    const el = elementOf(move);
+    if (!damaging) {
+      this.statusMove(side, move, ev);
+      // Elemental status moves still leave a mark: setup has value.
+      if (!selfOnly && el && !target.fainted && !target.mark) this.setMark(foeSide, el, ev);
+      return;
+    }
 
     const targetName = this.label(foeSide);
     const types = getSpecies(target.mon.speciesId).types;
-    const eff = move.id === "struggle" ? 1 : effectiveness(move.type, types);
+    const eff = move.id === "struggle" ? 1 : ultimateEff(move, effectiveness(move.type, types));
     if (eff === 0) { ev.push({ kind: "text", text: `Không có tác dụng với ${targetName}…` }); return; }
+    const reaction = el && target.mark ? reactionFor(target.mark, el) : null;
+    let mult = timing * (reaction?.mult ?? 1) * (target.guarding ? 0.5 : 1);
+    if (ultimate && target.guarding) mult *= 0.8; // a braced target shrugs off even more of an ultimate
 
     let dealtTotal = 0, crit = false, hits = 0;
     const totalHits = move.multiHit ? this.rollHits(move.multiHit) : 1;
     for (let h = 0; h < totalHits && !target.fainted; h++) {
       let dmg: number;
+      let hitCrit = false;
       if (move.ohko) dmg = target.mon.hp;
       else if (move.fixedDamage === "level") dmg = user.mon.level;
       else if (move.fixedDamage === "half") dmg = Math.max(1, Math.floor(target.mon.hp / 2));
@@ -335,18 +454,27 @@ export class BattleEngine {
         const physical = categoryOf(move.type) === "physical";
         const screen = physical ? this.sides[foeSide].reflect > 0 : this.sides[foeSide].lightscreen > 0;
         const res = calcDamage(this.rng, move, user.mon, user.stages, target.mon, target.stages, {
-          critStage: user.focus ? 2 : 0, screen, power: move.lowHpPower ? lowHpPower(user.mon) : undefined,
+          critStage: user.focus ? 2 : 0, screen, power: move.lowHpPower ? lowHpPower(user.mon) : undefined, mult,
         });
         dmg = res.damage;
+        hitCrit = res.crit;
         crit ||= res.crit;
       }
       const dealt = Math.min(target.mon.hp, dmg);
       dealtTotal += dealt;
       hits++;
-      ev.push({ kind: "hit", side: foeSide, eff });
+      ev.push({ kind: "hit", side: foeSide, eff, damage: dealt, crit: hitCrit });
       this.setHp(foeSide, target.mon.hp - dealt, ev);
       if (target.mon.hp <= 0) break;
     }
+    if (reaction) ev.push({ kind: "reaction", side: foeSide, name: reaction.name, color: reaction.color });
+    if (target.guarding) ev.push({ kind: "text", text: `${targetName} đã THỦ, giảm sát thương!` });
+    if (timing >= 1.3) ev.push({ kind: "text", text: "Nhịp HOÀN HẢO! Sát thương tăng mạnh!" });
+    // Surge: dealing and taking damage both charge the ultimate.
+    // Tuned so an ultimate comes roughly every 5 turns of an even fight.
+    if (!ultimate) this.gainSurge(side, 4 + (dealtTotal / maxHp(target.mon)) * 30 + (reaction ? 12 : 0) + (timing >= 1.3 ? 5 : 0));
+    this.gainSurge(foeSide, (dealtTotal / maxHp(target.mon)) * 36);
+    ev.push(this.energyEvent(side), this.energyEvent(foeSide));
     if (move.multiHit) ev.push({ kind: "text", text: `Trúng ${hits} lần!` });
     if (move.ohko) ev.push({ kind: "text", text: "Đòn hạ gục một chiêu!" });
     if (crit) ev.push({ kind: "text", text: "Đòn chí mạng!" });
@@ -368,9 +496,23 @@ export class BattleEngine {
       ev.push({ kind: "text", text: `${name} bị phản đòn!` });
     }
     if (move.selfDestruct) this.setHp(side, 0, ev);
+    if (reaction?.heal && dealtTotal > 0 && user.mon.hp > 0 && user.mon.hp < maxHp(user.mon)) {
+      this.setHp(side, user.mon.hp + Math.max(1, Math.floor(dealtTotal * reaction.heal)), ev);
+      ev.push({ kind: "text", text: `${name} hấp thụ sinh lực từ phản ứng!` });
+    }
     this.checkFaint(foeSide, ev);
     this.checkFaint(side, ev);
     if (target.fainted || user.fainted) return;
+
+    // Marks: a reaction consumes the mark; otherwise the hit leaves its own.
+    if (reaction) {
+      this.setMark(foeSide, null, ev);
+      if (reaction.status && this.rng.chance(reaction.status.chance)) this.inflict(foeSide, reaction.status.cond, ev, false);
+      if (reaction.debuff) this.changeStat(foeSide, reaction.debuff.stat, reaction.debuff.stages, ev);
+      if (reaction.confuse && this.rng.chance(reaction.confuse)) this.confuse(foeSide, ev, false);
+    } else if (el) {
+      this.setMark(foeSide, el, ev);
+    }
 
     // Secondary effects
     const chance = (move.chance ?? 100) / 100;
@@ -409,7 +551,13 @@ export class BattleEngine {
       return;
     }
     if (move.protect) {
-      if (this.moved.has(foeSide)) { ev.push({ kind: "text", text: "Nhưng thất bại!" }); return; }
+      // Consecutive Protects get harder (1, 1/3, 1/9...), so stalling can't loop forever.
+      if (this.moved.has(foeSide) || !this.rng.chance(1 / Math.pow(3, user.protectChain))) {
+        user.protectChain = 0;
+        ev.push({ kind: "text", text: "Nhưng thất bại!" });
+        return;
+      }
+      user.protectChain++;
       user.protecting = true;
       ev.push({ kind: "text", text: `${this.label(side)} vào thế phòng thủ!` });
       return;
@@ -489,27 +637,47 @@ export class BattleEngine {
   }
 
   private residual(ev: BattleEvent[]) {
+    // Stalemate breaker (replaces PP/Struggle): from turn 40 the arena drains both actives, growing each turn.
+    if (this.turn > FATIGUE_TURN && this.phase !== "over") {
+      if (this.turn === FATIGUE_TURN + 1) ev.push({ kind: "text", text: "Linh khí sân đấu bắt đầu cạn kiệt! Cả hai bên đều mất sức mỗi lượt." });
+      for (const s of ["player", "foe"] as Side[]) {
+        const b = this.side(s);
+        if (b.fainted) continue;
+        const dmg = Math.min(b.mon.hp, Math.max(1, Math.floor((maxHp(b.mon) * (this.turn - FATIGUE_TURN)) / 16)));
+        ev.push({ kind: "hit", side: s, eff: 1, damage: dmg });
+        this.setHp(s, b.mon.hp - dmg, ev);
+        this.checkFaint(s, ev);
+      }
+    }
     for (const s of ["player", "foe"] as Side[]) {
       const b = this.side(s);
       if (b.fainted || this.phase === "over") continue;
       if (b.mon.status === "brn" || b.mon.status === "psn") {
         const dmg = Math.max(1, Math.floor(maxHp(b.mon) / 8));
         ev.push({ kind: "text", text: `${this.label(s)} bị ${b.mon.status === "brn" ? "bỏng" : "độc"} gây sát thương!` });
-        ev.push({ kind: "hit", side: s, eff: 1 });
+        ev.push({ kind: "hit", side: s, eff: 1, damage: Math.min(b.mon.hp, dmg) });
         this.setHp(s, b.mon.hp - dmg, ev);
         this.checkFaint(s, ev);
       }
       const other = this.side(this.other(s));
       if (b.seeded && !b.fainted && !other.fainted) {
         const dmg = Math.min(b.mon.hp, Math.max(1, Math.floor(maxHp(b.mon) / 8)));
-        ev.push({ kind: "text", text: `Hạt giống hút HP của ${this.label(s)}!` }, { kind: "hit", side: s, eff: 1 });
+        ev.push({ kind: "text", text: `Hạt giống hút HP của ${this.label(s)}!` }, { kind: "hit", side: s, eff: 1, damage: dmg });
         this.setHp(s, b.mon.hp - dmg, ev);
         if (other.mon.hp < maxHp(other.mon)) this.setHp(this.other(s), other.mon.hp + dmg, ev);
         this.checkFaint(s, ev);
       }
     }
     for (const s of ["player", "foe"] as Side[]) {
-      const st = this.sides[s];
+      const st = this.sides[s], b = this.side(s);
+      if (this.phase !== "over") {
+        st.energy = Math.min(ENERGY_MAX, st.energy + ENERGY_REGEN);
+        ev.push(this.energyEvent(s));
+      }
+      if (b.mark && !b.fainted && --b.markTurns <= 0) {
+        ev.push({ kind: "text", text: `Dấu ấn trên ${this.label(s)} đã tan biến.` });
+        this.setMark(s, null, ev);
+      }
       for (const k of ["reflect", "lightscreen"] as const) {
         if (st[k] > 0 && --st[k] === 0) ev.push({ kind: "text", text: `${k === "reflect" ? "Reflect" : "Light Screen"} ${s === "player" ? "của bạn" : "của đối thủ"} đã hết tác dụng.` });
       }
@@ -580,25 +748,38 @@ export class BattleEngine {
   private useItem(itemId: string, target: number, ev: BattleEvent[]): boolean {
     const item = getItem(itemId);
     if (!item || this.setup.bag.count(itemId) <= 0) { ev.push({ kind: "text", text: "Bạn không có vật phẩm này." }); return false; }
-    if (item.category === "ball") {
-      if (this.isTrainer) { ev.push({ kind: "text", text: "Không thể bắt Pokémon của Trainer khác!" }); return false; }
+    if (item.category === "ball") return this.bond(itemId, 1, ev);
+    if (item.category === "evolution") { ev.push({ kind: "text", text: "Không thể dùng vật phẩm này trong trận đấu." }); return false; }
+    return this.useMedicine(itemId, target, ev);
+  }
+
+  /** KẾT NỐI: bond with a weakened wild creature through a crystal. */
+  private bond(itemId: string, bonus: number, ev: BattleEvent[]): boolean {
+    const item = getItem(itemId);
+    if (!item || item.category !== "ball" || this.setup.bag.count(itemId) <= 0) { ev.push({ kind: "text", text: "Bạn không có Pha Lê Kết Nối." }); return false; }
+    {
+      if (this.isTrainer) { ev.push({ kind: "text", text: "Không thể kết nối với Pokémon của Trainer khác!" }); return false; }
       this.setup.bag.take(itemId);
-      const shakes = catchShakes(this.rng, this.f.mon, item.ball ?? 1);
+      const shakes = catchShakes(this.rng, this.f.mon, (item.ball ?? 1) * Math.max(1, bonus));
       const caught = shakes >= 4;
-      ev.push({ kind: "text", text: `Bạn ném ${item.name}!` }, { kind: "ball", ball: itemId, shakes: Math.min(3, shakes), caught });
+      ev.push({ kind: "text", text: `Bạn giơ ${item.name} lên, luồng sáng kết nối vươn tới ${displayName(this.f.mon)}!` }, { kind: "ball", ball: itemId, shakes: Math.min(3, shakes), caught });
       if (caught) {
         this.f.mon.caughtBall = itemId;
         const where = this.setup.onCaught(this.f.mon);
-        ev.push({ kind: "text", text: `Tuyệt vời! Đã bắt được ${displayName(this.f.mon)}!` });
+        ev.push({ kind: "text", text: `Kết nối thành công! ${displayName(this.f.mon)} đã trở thành bạn đồng hành!` });
         ev.push({ kind: "text", text: `Dữ liệu ${displayName(this.f.mon)} đã được thêm vào Pokédex.` });
         if (where === "box") ev.push({ kind: "text", text: `Đội đã đầy, ${displayName(this.f.mon)} được gửi vào PC Box.` });
         this.finish(ev, "caught");
       } else {
-        ev.push({ kind: "text", text: ["Ôi không! Pokémon đã thoát ra!", "Aaa! Suýt nữa thì bắt được!", "Tiếc quá! Gần được rồi!", "Chỉ thiếu chút nữa thôi!"][shakes] });
+        ev.push({ kind: "text", text: ["Sợi kết nối đứt ngay lập tức!", "Nó chần chừ… rồi giật lùi lại!", "Gần được rồi! Nó vẫn còn cảnh giác.", "Chỉ thiếu một nhịp nữa thôi!"][shakes] });
+        ev.push({ kind: "text", text: "Mẹo: HP thấp, trạng thái bất lợi và nhịp chuẩn giúp kết nối dễ hơn." });
       }
       return true;
     }
-    if (item.category === "evolution") { ev.push({ kind: "text", text: "Không thể dùng vật phẩm này trong trận đấu." }); return false; }
+  }
+
+  private useMedicine(itemId: string, target: number, ev: BattleEvent[]): boolean {
+    const item = getItem(itemId)!;
     const mon = this.setup.playerParty[target];
     if (!mon) return false;
     const res = applyItem(itemId, mon);

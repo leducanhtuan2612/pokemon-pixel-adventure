@@ -180,3 +180,6 @@
 .audio-toggle[aria-pressed="false"]{color:#91a39b;border-color:#34443e}
 @media(max-width:480px){.topbar{gap:8px}.audio-toggle{padding:7px 8px;font-size:8px}.status-pill{display:none}}
 @media(min-width:481px){.status-pill{margin-left:8px}}
+.quick-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:-10px 0 16px}
+.quick-actions button{border:1px solid #35494a;border-radius:7px;background:#1c2b31;color:#cfe2d6;padding:7px 4px;font:700 9px "DM Mono",monospace;letter-spacing:.04em;cursor:pointer;transition:background .15s,border-color .15s}
+.quick-actions button:hover{background:#283d44;border-color:#88b07b;color:#eef6d8}

@@ -12,7 +12,7 @@ const T = TILE_SIZE;
 
 export interface NpcRuntime {
   def: NpcDef; x: number; y: number; home: Point; facing: Direction; moving: boolean;
-  sprite: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Image;
+  sprite: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Image; badge?: Phaser.GameObjects.Text;
 }
 
 interface AnimatedCell { sprite: Phaser.GameObjects.Image; frames: number[] }
@@ -98,7 +98,9 @@ export class WorldMap {
     for (const it of this.def.items ?? []) {
       if (it.hidden || this.picked.has(it.id)) continue;
       const p = this.project(it.x, it.y);
-      this.itemSprites.set(it.id, this.scene.add.image(p.x, p.y - 3, PROP.itemBall).setOrigin(0.5, 0.5).setDepth(depthFor(it.y, 0.2)));
+      const ball = this.scene.add.image(p.x, p.y - 3, PROP.itemBall).setOrigin(0.5, 0.5).setDepth(depthFor(it.y, 0.2));
+      this.scene.tweens.add({ targets: ball, y: p.y - 6, duration: 750, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+      this.itemSprites.set(it.id, ball);
     }
     for (const def of this.def.npcs) this.spawnNpc(def, defeated.includes(def.id));
     this.grassFront = this.scene.add.image(0, 0, PROP.grassFront).setOrigin(0, 0).setVisible(false);
@@ -126,8 +128,10 @@ export class WorldMap {
     const p = this.project(to.x, to.y), x = p.x, y = p.y;
     this.scene.tweens.add({ targets: n.sprite, x, y, duration: 300 });
     this.scene.tweens.add({ targets: n.shadow, x, y: y + 13, duration: 300 });
+    if (n.badge) this.scene.tweens.add({ targets: n.badge, x, y: y - 26, duration: 300 });
     n.sprite.setDepth(depthFor(to.y, 0.5));
     n.shadow.setDepth(depthFor(to.y, 0.1));
+    n.badge?.setDepth(depthFor(to.y, 0.8));
   }
 
   faceNpc(n: NpcRuntime, dir: Direction) {
@@ -235,7 +239,7 @@ export class WorldMap {
     this.animTick++;
     for (const c of this.animated) {
       const f = c.frames.length === 2 ? Math.floor(this.animTick / 2) % 2 : this.animTick % c.frames.length;
-      c.sprite.setFrame(String(f));
+      c.sprite.setFrame(String(c.frames[f]));
     }
   }
 
@@ -272,13 +276,36 @@ export class WorldMap {
       else if (ch === "W") this.scene.add.image(left, top, PROP.well).setOrigin(0, 0).setDepth(d);
       else if (ch === "n") this.scene.add.image(left, top, PROP.bench).setOrigin(0, 0).setDepth(d);
       else if (ch === "m") this.scene.add.image(left, top, PROP.mailbox).setOrigin(0, 0).setDepth(d);
-      else if (ch === "l") this.scene.add.image(left, top, PROP.lamp).setOrigin(0, 0).setDepth(d + 0.4);
+      else if (ch === "l") {
+        this.scene.add.image(left, top, PROP.lamp).setOrigin(0, 0).setDepth(d + 0.4);
+        const glow = this.scene.add.image(p.x, p.y - 10, PROP.firefly).setBlendMode(Phaser.BlendModes.ADD).setTint(0xffd27a).setScale(2.4).setAlpha(0.45).setDepth(d + 0.5);
+        this.scene.tweens.add({ targets: glow, alpha: 0.7, scale: 2.8, duration: 1400, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+      }
       else if (ch === "Q") {
         const aura = this.scene.add.image(p.x, p.y - 4, PROP.firefly).setBlendMode(Phaser.BlendModes.ADD).setScale(2.8).setAlpha(0.65).setDepth(d);
         this.scene.tweens.add({ targets: aura, alpha: 0.25, scale: 3.4, duration: 1250, yoyo: true, repeat: -1 });
         const crystal = this.scene.add.image(p.x, p.y + 16, PROP.crystal).setOrigin(0.5, 1).setDepth(d + 0.4);
         this.scene.tweens.add({ targets: crystal, y: crystal.y - 2, alpha: 0.88, duration: 900, yoyo: true, repeat: -1 });
       }
+    }
+  }
+
+  private badgeInfo(def: NpcDef, defeated: boolean): { text: string; color: string } | null {
+    if (def.role === "healer") return { text: "♥", color: "#ff7aa8" };
+    if (def.role === "mart") return { text: "$", color: "#78e08f" };
+    if (def.role === "trainer" || def.role === "boss") {
+      if (defeated) return { text: "✓", color: "#78e08f" };
+      return def.badge ? { text: "★", color: "#e89cff" } : { text: "!", color: "#ffe066" };
+    }
+    return null;
+  }
+
+  refreshNpcBadges(defeated: readonly string[]) {
+    for (const n of this.npcs) {
+      if (!n.badge) continue;
+      const info = this.badgeInfo(n.def, defeated.includes(n.def.id));
+      if (info) n.badge.setText(info.text).setColor(info.color).setVisible(true);
+      else n.badge.setVisible(false);
     }
   }
 
@@ -290,7 +317,12 @@ export class WorldMap {
     const sprite = critter
       ? this.scene.add.sprite(x, y - 4, spriteKey(def.speciesId ?? "pidgey", "front")).setScale(1.5).setDepth(depthFor(pos.y, 0.5))
       : this.scene.add.sprite(x, y, ensureCharacterTexture(this.scene, def.look), 0).setDepth(depthFor(pos.y, 0.5));
-    const n: NpcRuntime = { def, x: pos.x, y: pos.y, home: { x: pos.x, y: pos.y }, facing: def.facing, moving: false, sprite, shadow };
+    const info = this.badgeInfo(def, defeated);
+    const badge = info
+      ? this.scene.add.text(x, y - 26, info.text, { fontFamily: "monospace", fontSize: "11px", fontStyle: "bold", color: info.color, stroke: "#18241d", strokeThickness: 3 }).setOrigin(0.5).setDepth(depthFor(pos.y, 0.8))
+      : undefined;
+    if (badge) this.scene.tweens.add({ targets: badge, y: y - 29, duration: 900, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+    const n: NpcRuntime = { def, x: pos.x, y: pos.y, home: { x: pos.x, y: pos.y }, facing: def.facing, moving: false, sprite, shadow, badge };
     this.faceNpc(n, def.facing);
     if (critter) this.scene.tweens.add({ targets: sprite, scaleY: 1.6, duration: 500 + Math.random() * 300, yoyo: true, repeat: -1 });
     this.npcs.push(n);
