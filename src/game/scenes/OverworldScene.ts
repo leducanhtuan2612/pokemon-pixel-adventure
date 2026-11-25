@@ -328,6 +328,11 @@ export class OverworldScene extends Phaser.Scene {
     this.world.faceNpc(n, opposite[this.player.facing]);
     const done = this.save.defeated.includes(def.id);
 
+    if (def.id === "gift-codes") {
+      this.openDialog(def.dialog, () => useGameStore.getState().open("redeem"));
+      return;
+    }
+
     if (def.role === "healer") {
       if (!this.save.party.length) { this.openDialog(["Chào bạn! Khi nào có Pokémon hãy ghé lại nhé."]); return; }
       this.openDialog(def.dialog, () => { session.healAll(); session.changed(); });
