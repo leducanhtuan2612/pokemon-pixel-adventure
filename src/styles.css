@@ -238,3 +238,80 @@
 .px-card img,.px-card .px-sprite{filter:drop-shadow(0 4px 3px #263b3b38)}
 .px-card-info{color:#2d4338}
 @media(max-width:560px){.ppa-gacha-actions{grid-template-columns:1fr}.ppa-gacha-results article{min-height:110px}.ppa-gacha-results article img{width:64px;height:64px}}
+
+
+/* ===== Wildlands UI polish: readable, tactile pixel-RPG panels ===== */
+@font-face{font-family:VT323;src:url('/node_modules/@fontsource/vt323/files/vt323-latin-400-normal.woff2') format('woff2');font-display:swap}
+:root{--ppa-ink:#18242b;--ppa-night:#0c141a;--ppa-panel:#17232b;--ppa-line:#40535b;--ppa-mint:#b8e4a2;--ppa-gold:#ffd77c;--ppa-paper:#f8f5e8}
+.app-shell{max-width:1440px;padding:clamp(14px,2.5vw,34px)}
+.topbar{gap:15px}.brand-mark{border-radius:5px;background:linear-gradient(145deg,#2d5146,#1b302d);box-shadow:inset 0 0 0 2px #182a27,0 4px 0 #080f13;font-family:VT323;font-size:31px}
+.topbar strong{font-family:VT323,sans-serif;font-size:27px;letter-spacing:.06em;color:#e9f4dc}.topbar span{font-size:11px}
+.audio-toggle{border:1px solid #52675d;background:#1b2a2d;color:#c7e7b0;border-radius:5px;padding:9px 12px;font:11px "DM Mono",monospace;cursor:pointer}
+.status-pill{border-radius:5px;background:#14231f}
+.game-layout{grid-template-columns:minmax(0,1fr) 310px;gap:20px}
+.game-frame,.side-panel{border-radius:8px;box-shadow:0 12px 0 #070d11,0 26px 65px #0005}
+.frame-label,.frame-bottom{font-size:11px;padding:13px 18px}
+.game-stage{background:#0b1517}
+.game-host{aspect-ratio:16/10;min-height:340px}
+.game-host canvas{image-rendering:pixelated;filter:saturate(1.07) contrast(1.025)}
+.start-overlay{background:radial-gradient(ellipse at center,#162c1a50 0%,#07120cbf 100%)}
+.start-overlay h1{font-family:VT323,sans-serif;font-size:clamp(48px,6vw,76px);line-height:.85;letter-spacing:0;text-shadow:0 4px #17251b,3px 3px #17251b}
+.start-overlay h1 em{color:#f8df8c}
+.start-overlay p{font-size:15px;text-shadow:0 2px #17251b}
+.start-overlay button{border-radius:4px;border:2px solid #31452e;box-shadow:0 5px 0 #77955b, inset 0 1px #fff8;font-family:VT323,sans-serif;font-size:22px;letter-spacing:.04em;padding:11px 18px}
+.start-overlay button.secondary{border-color:#435b55;box-shadow:0 5px 0 #101e1b;font-size:20px}
+.start-overlay small{font-size:10px;max-width:90%;line-height:1.8}
+.side-panel{background:linear-gradient(160deg,#1b2931,#111b22);padding:19px;border-color:#52636a}
+.panel-heading{font-size:12px}.panel-heading b{background:#283b30;border:1px solid #526c4d;padding:4px 9px;border-radius:3px}
+.trainer-card{border-radius:5px;background:#202f34;border-color:#4a5c61}
+.trainer-avatar{border-radius:4px;border:1px solid #687f68;background:#33483c}
+.section-title{font-size:12px;color:#c0d0ca;display:flex;justify-content:space-between}
+.quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.quick-actions button,.side-quest-actions button{border:1px solid #50645b;border-radius:4px;background:#202f31;color:#c9e1bd;padding:9px 7px;font:11px "DM Mono",monospace;cursor:pointer;transition:background .15s,transform .15s}
+.quick-actions button:hover,.side-quest-actions button:hover{background:#30483b;transform:translateY(-1px)}
+.quest-active{border-radius:5px;background:linear-gradient(145deg,#293d30,#1c2d2d);border-color:#6b865b}
+.quest-copy strong{font-size:14px}.quest-copy p{font-size:12px}
+.quest-navigate{border-radius:4px;font-size:11px}
+.side-quest{border:1px solid #394d52;border-radius:5px;background:#1a292f;padding:11px;margin:8px 0}
+.side-quest-top{display:flex;gap:8px;justify-content:space-between;font-size:11px}
+.side-quest-top span{font:9px "DM Mono",monospace;color:#d4df9c;white-space:nowrap}
+.side-quest p{font-size:11px;color:#aabdc0;line-height:1.55;margin:7px 0}
+.side-quest-bar{height:5px;background:#0c171b;border:1px solid #35474c;border-radius:3px;overflow:hidden;margin:8px 0}
+.side-quest-bar span{display:block;height:100%;background:linear-gradient(90deg,#6d9d69,#c7e6a1)}
+.side-quest small{font-size:9px;color:#879da3}
+.side-quest-actions{display:flex;gap:6px;margin-top:9px}.side-quest-actions button{flex:1;font-size:9px;padding:7px 4px}
+.side-quest-actions button:disabled{opacity:.35;cursor:not-allowed}
+.side-quest.is-complete{border-color:#78935d}.side-quest.is-claimed{opacity:.65}
+.controls{padding:10px;border:1px solid #34484f;border-radius:5px;background:#101c22}
+kbd{border-radius:3px;background:#2a3941;box-shadow:0 2px 0 #091116}
+footer{font-size:10px}
+.touch-pad button{border:2px solid #d8e6b0;background:#15251dcc;color:#f0f6d6;border-radius:5px;box-shadow:0 3px 0 #08100b;font-size:18px;touch-action:none}
+.touch-pad button:active{transform:translateY(2px);box-shadow:0 1px 0 #08100b}
+/* Gacha and expedition panels have a clear card hierarchy and prominent pixel rewards. */
+.ppa-gacha-head{padding:12px;border:2px solid #8b7848;background:linear-gradient(135deg,#fff3c7,#f1d993);color:#493a1f;border-radius:6px;text-align:center}
+.ppa-gacha-head b{font:26px VT323,sans-serif;letter-spacing:.04em}.ppa-gacha-head p{font-size:11px;margin:5px 0 0}
+.ppa-gacha-rates{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
+.ppa-gacha-rates span{display:flex;justify-content:space-between;padding:7px 9px;border:1px solid #c6cbd0;border-radius:4px;background:#fff;font-size:11px}
+.ppa-gacha-rates span b{color:#8c6233}
+.ppa-gacha-note{padding:10px;border-left:4px solid #84a66c;background:#e8f0df;color:#435443;font-size:11px;line-height:1.6;border-radius:0 5px 5px 0}
+.ppa-gacha-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.ppa-gacha-actions button,.px-gacha>button:not(.ppa-gacha-close),.px-expedition>button{border:2px solid #344d3b;border-radius:4px;background:#365d43;color:#fff7d9;padding:11px 8px;font:17px VT323,sans-serif;box-shadow:0 3px 0 #203a2a;text-align:center}
+.ppa-gacha-actions button:hover,.px-expedition>button:hover{background:#477a54}
+.ppa-gacha-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:7px;margin:12px 0}
+.ppa-gacha-results article{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:7px 4px;border:2px solid #aeb8b7;border-radius:5px;background:#fff;text-align:center;min-width:0}
+.ppa-gacha-results article img{image-rendering:pixelated}.ppa-gacha-results article b{font-size:11px}.ppa-gacha-results article small{font-size:10px;color:#647079}
+.ppa-gacha-results .rarity-rare{border-color:#6b9ed0;background:#edf5ff}.ppa-gacha-results .rarity-legendary{border-color:#d5a34a;background:linear-gradient(145deg,#fff3c6,#f5d27b);box-shadow:0 0 12px #e8bd5966}
+.ppa-gacha-history{padding:9px;background:#e7e9e4;border-radius:4px;color:#505c5e;font-size:10px}.ppa-gacha-history b{font-size:11px}.ppa-gacha-history p{line-height:1.6;margin:5px 0}
+.ppa-gacha-close{margin-top:9px;padding:8px 14px!important;border:1px solid #9aa5a9!important;border-radius:4px!important;background:#e7ebee!important;color:#39464b!important;font:13px "DM Mono",monospace!important;box-shadow:none!important}
+.ppa-stage-list{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;margin:10px 0}
+.ppa-stage-list button{padding:7px 0;border:1px solid #b5c0c2;border-radius:3px;background:#edf1f0;color:#45535a;font:13px VT323,sans-serif;text-align:center}
+.ppa-stage-list button.active{background:#f3d77e;border-color:#b58a34;color:#4e3b17;box-shadow:inset 0 0 0 1px #fff8}
+.ppa-stage-list button.cleared{background:#d9ebd2;border-color:#84a77a;color:#385b36}
+.ppa-stage-list button:disabled{opacity:.42}
+.ppa-expedition-foe{display:flex;align-items:center;gap:12px;padding:10px;border:2px solid #a8b4b4;border-radius:5px;background:linear-gradient(135deg,#f6f8f0,#dce8e5)}
+.ppa-expedition-foe img{image-rendering:pixelated;filter:drop-shadow(0 3px 1px #172c2b33)}
+.ppa-expedition-foe small{font-size:10px;color:#8d4d36}.ppa-expedition-foe h3{font:25px VT323,sans-serif;color:#253d43;margin:3px 0}.ppa-expedition-foe p{font-size:11px;color:#687a7c;margin:0}
+.ppa-expedition-result{padding:10px;border:2px solid #7ca36e;border-radius:4px;background:#e0f0d6;color:#345c32;font-weight:700;font-size:12px}
+@media(max-width:900px){.game-layout{grid-template-columns:minmax(0,1fr) 270px}.game-host{min-height:280px}}
+@media(max-width:700px){.game-layout{grid-template-columns:1fr}.game-host{min-height:0}.side-panel{display:block}.status-pill{display:none}.audio-toggle{margin-left:auto}.topbar strong{font-size:23px}.ppa-stage-list{grid-template-columns:repeat(6,1fr)}}
+@media(max-width:440px){.frame-label,.frame-bottom{font-size:9px;padding:10px}.start-overlay h1{font-size:42px}.start-overlay small{font-size:8px}.ppa-gacha-actions button{font-size:14px}}
