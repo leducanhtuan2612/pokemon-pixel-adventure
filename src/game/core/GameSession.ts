@@ -3,7 +3,7 @@ import { getItem } from "../data/items";
 import { MOVES, getMove, normalizeMoveId } from "../data/moves";
 import { getSpecies } from "../data/species";
 import {
-  createPokemon, displayName, evolve, expForLevel, healPokemon, itemEvolution, maxHp, type PokemonInstance,
+  createPokemon, displayName, evolve, expForLevel, healPokemon, itemEvolution, maxHp, slot, type PokemonInstance,
 } from "./pokemon";
 
 export interface SaveData {
@@ -174,6 +174,7 @@ export class GameSession {
     if (!this.hasFlag("unlock:move-lab")) return { ok: false, message: "Hãy đổi mã MAP1-MOVE-LAB trước." };
     const mon = this.data.party[partyIndex], id = normalizeMoveId(moveId), move = MOVES[id];
     if (!mon || !move || !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 3) return { ok: false, message: "Pokémon, chiêu hoặc ô chiêu không hợp lệ." };
+    while (mon.moves.length <= slotIndex) mon.moves.push(slot("tackle"));
     const pp = getMove(id).pp;
     mon.moves[slotIndex] = { id, pp, maxPp: pp };
     this.changed();
