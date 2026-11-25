@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { ruleFor } from "./tiles";
 import {
   BUILDING_OVERHANG, CHAR_FRAME, E, N, NE, NW, PROP, S, SE, SW, TILE_SIZE, W, WINDMILL_OVERHANG,
-  buildAtlas, ensureBuildingTexture, ensureCharacterTexture, ensurePropTextures,
+  buildAtlas, ensureBuildingTexture, ensureCharacterTexture, ensurePropTextures, ISO_TILE_W, ISO_TILE_H,
 } from "./TilesetFactory";
 import { DIR_VECTORS, type BuildingDef, type Direction, type ExitDef, type MapDefinition, type MapItemDef, type NpcDef, type Point, type SignDef } from "./types";
 import { spriteKey } from "../battle/sprites";
@@ -15,7 +15,7 @@ export interface NpcRuntime {
   sprite: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Image;
 }
 
-interface AnimatedCell { x: number; y: number; frames: number[] }
+interface AnimatedCell { sprite: Phaser.GameObjects.Image; frames: number[] }
 
 /** Depth for y-sorted objects standing on tile row `y`. */
 export const depthFor = (y: number, bias = 0) => 10 + y + bias;
@@ -30,7 +30,7 @@ export class WorldMap {
   readonly height: number;
   readonly npcs: NpcRuntime[] = [];
   private tilemap?: Phaser.Tilemaps.Tilemap;
-  private layer?: Phaser.Tilemaps.TilemapLayer;
+  private groundSprites: Phaser.GameObjects.Image[] = [];
   private animated: AnimatedCell[] = [];
   private animTick = 0;
   private grassFront?: Phaser.GameObjects.Image;
@@ -44,8 +44,9 @@ export class WorldMap {
     if (bad >= 0) throw new Error(`Map ${def.id}: row ${bad} has ${def.layout[bad].length} tiles, expected ${this.width}`);
   }
 
-  get pixelWidth() { return this.width * T; }
-  get pixelHeight() { return this.height * T; }
+  get pixelWidth() { return (this.width + this.height) * ISO_TILE_W / 2; }
+  get pixelHeight() { return (this.width + this.height) * ISO_TILE_H / 2; }
+  project(x: number, y: number): Point { return { x: (x - y + this.height) * ISO_TILE_W / 2, y: (x + y) * ISO_TILE_H / 2 }; }
 
   charAt(x: number, y: number): string {
     if (x < 0 || y < 0 || x >= this.width || y >= this.height) return "T";
@@ -98,7 +99,8 @@ export class WorldMap {
   updateGrassOverlay(tile: Point, depth: number, rustle: boolean) {
     const g = this.grassFront!;
     if (!this.isEncounterTile(tile.x, tile.y)) { g.setVisible(false); return; }
-    g.setPosition(tile.x * T, tile.y * T).setDepth(depth + 0.05).setVisible(true);
+    const p = this.project(tile.x, tile.y);
+    g.setPosition(p.x - ISO_TILE_W / 2, p.y - ISO_TILE_H / 2).setScale(2, 1).setDepth(depth + 0.05).setVisible(true);
     if (!rustle) return;
     this.scene.tweens.add({ targets: g, y: g.y - 2, duration: 70, yoyo: true, repeat: 1 });
     for (let i = 0; i < 3; i++) {
@@ -109,7 +111,7 @@ export class WorldMap {
 
   moveNpc(n: NpcRuntime, to: Point) {
     n.x = to.x; n.y = to.y;
-    const x = to.x * T + 16, y = to.y * T + 16;
+    const p = this.project(to.x, to.y), x = p.x, y = p.y;
     this.scene.tweens.add({ targets: n.sprite, x, y, duration: 300 });
     this.scene.tweens.add({ targets: n.shadow, x, y: y + 13, duration: 300 });
     n.sprite.setDepth(depthFor(to.y, 0.5));
@@ -133,7 +135,7 @@ export class WorldMap {
     if (dy(v) > 0 || v.x !== 0) n.sprite.setDepth(depthFor(ny, 0.5));
     return new Promise((res) => {
       this.scene.tweens.add({
-        targets: n.sprite, x: nx * T + 16, y: ny * T + 16 - (critter ? 4 : 0), duration: ms,
+        targets: n.sprite, x: this.project(nx, ny).x, y: this.project(nx, ny).y - (critter ? 4 : 0), duration: ms,
         onUpdate: (tw) => {
           n.shadow.setPosition(n.sprite.x, n.sprite.y + (critter ? 10 : 13));
           if (critter) n.sprite.y = Phaser.Math.Linear(n.sprite.y, n.sprite.y, 1) - Math.sin(tw.progress * Math.PI) * 0.6;
