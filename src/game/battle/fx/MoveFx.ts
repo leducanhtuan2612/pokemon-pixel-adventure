@@ -453,7 +453,6 @@ export class MoveFx {
     rockthrow: async (c) => this.rocks(c.t, 3),
     rockslide: async (c) => this.rocks(c.t, 6),
     magnitude: async (c) => this.quake(c.t),
-    earthquake: async (c) => this.quake(c.t),
     selfdestruct: async (c) => this.explosion(c.u),
     explosion: async (c) => this.explosion(c.u),
     growl: async (c) => this.soundWaves(c.u, c.t, 0xf8c8a0),
