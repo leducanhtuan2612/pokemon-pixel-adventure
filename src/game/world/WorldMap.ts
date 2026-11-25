@@ -117,7 +117,7 @@ export class WorldMap {
     const p = this.project(to.x, to.y), x = p.x, y = p.y;
     this.scene.tweens.add({ targets: n.sprite, x, y, duration: 300 });
     this.scene.tweens.add({ targets: n.shadow, x, y: y + 13, duration: 300 });
-    n.sprite.setDepth(depthFor(to.x + to.y, 0.5));
+    n.sprite.setDepth(depthFor(to.x + to.y, 0.5));\n    n.shadow.setDepth(depthFor(to.x + to.y, 0.1));
   }
 
   faceNpc(n: NpcRuntime, dir: Direction) {
