@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { session } from "../../game/core/GameSession";
 import { displayName } from "../../game/core/pokemon";
 import { MOVES, getMove } from "../../game/data/moves";
@@ -7,7 +8,7 @@ import { categoryOf, TYPE_VI } from "../../game/data/types";
 import { useGameStore } from "../../state/gameStore";
 import { Sprite, TypeChip } from "./common";
 
-function QaWindow({ title, children }: { title: string; children: React.ReactNode }) {
+function QaWindow({ title, children }: { title: string; children: ReactNode }) {
   const close = useGameStore((s) => s.close);
   return <section className="px-qa">
     <header className="px-qa-head"><span>{title}</span><button onClick={close}>ĐÓNG ✕</button></header>
