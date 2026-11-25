@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import Phaser from "phaser";
 import { createGameConfig } from "../game/config";
 import { session } from "../game/core/GameSession";
@@ -11,6 +12,19 @@ export default function App() {
   const [started, setStarted] = useState(false);
   const setReady = useGameStore((s) => s.setReady);
   const hasSave = session.data.starterChosen;
+  type MoveDirection = "up" | "down" | "left" | "right";
+  const sendVirtualMove = (dir: MoveDirection, pressed: boolean) => {
+    window.dispatchEvent(new CustomEvent("game:virtual-move", { detail: { dir, pressed } }));
+  };
+  const pressMove = (event: ReactPointerEvent<HTMLButtonElement>, dir: MoveDirection) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    sendVirtualMove(dir, true);
+  };
+  const releaseMove = (event: ReactPointerEvent<HTMLButtonElement>, dir: MoveDirection) => {
+    event.preventDefault();
+    sendVirtualMove(dir, false);
+  };
 
   useEffect(() => {
     if (!host.current) return;
@@ -41,6 +55,12 @@ export default function App() {
         <div className="game-stage">
           <div ref={host} className="game-host" />
           <MenuLayer />
+          <div className="touch-pad" aria-label="Điều khiển di chuyển">
+            <button className="touch-up" aria-label="Đi lên" onPointerDown={(event) => pressMove(event, "up")} onPointerUp={(event) => releaseMove(event, "up")} onPointerCancel={(event) => releaseMove(event, "up")}>▲</button>
+            <button className="touch-left" aria-label="Đi sang trái" onPointerDown={(event) => pressMove(event, "left")} onPointerUp={(event) => releaseMove(event, "left")} onPointerCancel={(event) => releaseMove(event, "left")}>◀</button>
+            <button className="touch-down" aria-label="Đi xuống" onPointerDown={(event) => pressMove(event, "down")} onPointerUp={(event) => releaseMove(event, "down")} onPointerCancel={(event) => releaseMove(event, "down")}>▼</button>
+            <button className="touch-right" aria-label="Đi sang phải" onPointerDown={(event) => pressMove(event, "right")} onPointerUp={(event) => releaseMove(event, "right")} onPointerCancel={(event) => releaseMove(event, "right")}>▶</button>
+          </div>
           {!started && <div className="start-overlay">
             <div className="eyebrow">A NEW JOURNEY</div>
             <h1>YOUR STORY<br /><em>STARTS HERE.</em></h1>
@@ -49,10 +69,10 @@ export default function App() {
               {hasSave && <button onClick={() => start(false)}>TIẾP TỤC <span>→</span></button>}
               <button className={hasSave ? "secondary" : ""} onClick={() => (hasSave ? start(true) : start(false))}>{hasSave ? "GAME MỚI" : "BẮT ĐẦU PHIÊU LƯU"} <span>→</span></button>
             </div>
-            <small>WASD / ← ↑ → ↓ di chuyển · Click đi tới · Lăn chuột zoom · Z tương tác · ESC menu</small>
+            <small>WASD / ← ↑ → ↓ di chuyển · Shift chạy · Click đi tới · Z tương tác · ESC menu</small>
           </div>}
         </div>
-        <div className="frame-bottom"><span>▲ KANTO-LIKE REGION</span><span>BUILD 0.3.0</span></div>
+        <div className="frame-bottom"><span>▲ KANTO-LIKE REGION</span><span>BUILD 0.4.0</span></div>
       </div>
       <SidePanel />
     </section>

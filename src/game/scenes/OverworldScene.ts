@@ -144,7 +144,7 @@ export class OverworldScene extends Phaser.Scene {
     const q=this.cameras.main.getWorldPoint(pointer.x,pointer.y), tile=this.world.unproject(q.x,q.y);
     if(tile.x<0||tile.y<0||tile.x>=this.world.width||tile.y>=this.world.height){g.clear();return;}
     const p=this.world.project(tile.x,tile.y);
-    g.clear();g.lineStyle(2,0xeaffad,0.95);g.beginPath();g.moveTo(p.x,p.y-16);g.lineTo(p.x+32,p.y);g.lineTo(p.x,p.y+16);g.lineTo(p.x-32,p.y);g.closePath();g.strokePath();
+    g.clear();g.lineStyle(2,0xeaffad,0.95);g.strokeRect(p.x-16,p.y-16,32,32);
   };
 
   /** Mouse wheel adjusts camera zoom without changing the pixel-art scale of source textures. */
@@ -154,7 +154,7 @@ export class OverworldScene extends Phaser.Scene {
     cam.setZoom(Phaser.Math.Clamp(cam.zoom-dy*0.001,1,1.55));
   };
 
-  /** Mouse/touch destination selection. Convert screen pointer through camera, then inverse-isometric pick. */
+  /** Mouse/touch destination selection. Convert screen pointer through camera, then top-down tile pick. */
   private onWorldPointer = (pointer: Phaser.Input.Pointer) => {
     if (!this.canAct() || pointer.button > 0) return;
     const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);

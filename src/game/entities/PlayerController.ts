@@ -1,20 +1,18 @@
 import Phaser from "phaser";
-import { PROP, ISO_TILE_W, ISO_TILE_H, ensureCharacterTexture } from "../world/TilesetFactory";
+import { PROP, ensureCharacterTexture } from "../world/TilesetFactory";
 import { DIR_VECTORS, type Direction, type Point } from "../world/types";
 import { depthFor, setCharacterFrame, type WorldMap } from "../world/WorldMap";
 
-const STEP_MS = 190;      // time to cross one tile
-const TURN_GRACE_MS = 90; // tap to turn in place, hold to walk (classic feel)
+const STEP_MS = 145;
+const INPUT_BUFFER_MS = 180;
 
 /**
- * Grid-locked four-direction movement with a smooth tween between tiles.
- * Knows nothing about battles, NPC dialog or encounters — it reports steps
- * through `onStep` and the scene decides what happens.
+ * Responsive four-direction controller for the orthogonal top-down world.
+ * A direction tap moves immediately; brief inputs made during a step are buffered.
  */
 export class PlayerController {
   readonly sprite: Phaser.GameObjects.Sprite;
   private shadow: Phaser.GameObjects.Image;
-  /** Hold Shift to run (classic Running Shoes). */
   private shift: Phaser.Input.Keyboard.Key;
   tile: Point;
   facing: Direction = "down";
@@ -23,26 +21,33 @@ export class PlayerController {
 
   private moving = false;
   private stride: 1 | 2 = 1;
-  private heldDir: Direction | null = null;
-  private heldSince = 0;
-  private turnedThisHold = false;
+  private queuedDirection: Direction | null = null;
+  private queueExpiresAt = 0;
+  private virtualDirection: Direction | null = null;
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd: Record<"W" | "A" | "S" | "D", Phaser.Input.Keyboard.Key>;
 
-  private screen(p: Point): Point { return { x: (p.x - p.y + this.world.height) * ISO_TILE_W / 2, y: (p.x + p.y) * ISO_TILE_H / 2 }; }
+  private onVirtualMove = (event: Event) => {
+    const detail = (event as CustomEvent<{ dir?: Direction; pressed?: boolean }>).detail;
+    if (!detail?.dir) return;
+    this.virtualDirection = detail.pressed ? detail.dir : null;
+  };
 
   constructor(private scene: Phaser.Scene, private world: WorldMap, start: Point) {
     this.tile = { ...start };
     const texture = ensureCharacterTexture(scene, "player");
-    const p = this.screen(start);
-    this.shadow = scene.add.image(p.x, p.y + 13, PROP.shadow).setDepth(depthFor(start.x + start.y, 0.1));
+    const p = this.world.project(start.x, start.y);
+    this.shadow = scene.add.image(p.x, p.y + 13, PROP.shadow).setDepth(depthFor(start.y, 0.1));
     this.sprite = scene.add.sprite(p.x, p.y, texture, 0);
-    this.sprite.setDepth(depthFor(start.x + start.y, 0.5));
+    this.sprite.setDepth(depthFor(start.y, 0.5));
     setCharacterFrame(this.sprite, this.facing, 0);
     const kb = scene.input.keyboard!;
     this.cursors = kb.createCursorKeys();
     this.wasd = kb.addKeys("W,A,S,D") as PlayerController["wasd"];
     this.shift = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+
+    window.addEventListener("game:virtual-move", this.onVirtualMove);
+    scene.events.once("shutdown", () => window.removeEventListener("game:virtual-move", this.onVirtualMove));
     world.updateGrassOverlay(this.tile, this.sprite.depth, false);
   }
 
@@ -53,35 +58,48 @@ export class PlayerController {
     return { x: this.tile.x + v.x, y: this.tile.y + v.y };
   }
 
-  face(dir: Direction) { this.facing = dir; setCharacterFrame(this.sprite, dir, 0); }
+  face(dir: Direction) {
+    this.facing = dir;
+    setCharacterFrame(this.sprite, dir, 0);
+  }
 
   teleport(p: Point, dir: Direction = this.facing) {
     this.scene.tweens.killTweensOf(this.sprite);
     this.moving = false;
+    this.queuedDirection = null;
     this.tile = { ...p };
-    const screen = this.screen(p);
-    this.sprite.setPosition(screen.x, screen.y).setDepth(depthFor(p.x + p.y, 0.5));
-    this.shadow.setPosition(this.sprite.x, this.sprite.y + 13).setDepth(depthFor(p.x + p.y, 0.1));
+    const screen = this.world.project(p.x, p.y);
+    this.sprite.setPosition(screen.x, screen.y).setDepth(depthFor(p.y, 0.5));
+    this.shadow.setPosition(this.sprite.x, this.sprite.y + 13).setDepth(depthFor(p.y, 0.1));
     this.face(dir);
     this.world.updateGrassOverlay(this.tile, this.sprite.depth, false);
   }
 
   update(time: number) {
-    if (this.moving) return;
-    const dir = this.readInput();
-    if (!dir || this.locked) { this.heldDir = null; return; }
-
-    if (dir !== this.heldDir) { this.heldDir = dir; this.heldSince = time; this.turnedThisHold = false; }
-    if (dir !== this.facing) {
-      this.face(dir);
-      this.turnedThisHold = true;
-      return; // a quick tap only turns; keep holding to walk
+    if (this.locked) {
+      this.queuedDirection = null;
+      return;
     }
-    if (this.turnedThisHold && time - this.heldSince < TURN_GRACE_MS) return;
-    this.tryStep(dir);
+
+    const dir = this.readInput();
+    if (dir) {
+      this.queuedDirection = dir;
+      this.queueExpiresAt = time + INPUT_BUFFER_MS;
+    } else if (time > this.queueExpiresAt) {
+      this.queuedDirection = null;
+    }
+
+    if (this.moving) return;
+    const next = dir ?? this.queuedDirection;
+    if (!next) return;
+
+    this.queuedDirection = null;
+    if (next !== this.facing) this.face(next);
+    this.tryStep(next);
   }
 
   private readInput(): Direction | null {
+    if (this.virtualDirection) return this.virtualDirection;
     const c = this.cursors, k = this.wasd;
     if (c.up.isDown || k.W.isDown) return "up";
     if (c.down.isDown || k.S.isDown) return "down";
@@ -90,41 +108,46 @@ export class PlayerController {
     return null;
   }
 
-  /** Quest auto-walk: a single collision-checked step without keyboard input. */
+  /** Quest/click navigation: one collision-checked step without keyboard input. */
   autoStep(dir: Direction): boolean {
     if (this.moving) return false;
+    this.queuedDirection = null;
     this.face(dir);
     return this.tryStep(dir);
   }
 
   private tryStep(dir: Direction): boolean {
     const v = DIR_VECTORS[dir];
-    const nx = this.tile.x + v.x, ny = this.tile.y + v.y, dx = v.x, dy = v.y;
+    const nx = this.tile.x + v.x, ny = this.tile.y + v.y;
     if (this.world.isBlocked(nx, ny)) {
       setCharacterFrame(this.sprite, dir, 0);
       return false;
     }
+
     this.moving = true;
     this.tile = { x: nx, y: ny };
     this.stride = this.stride === 1 ? 2 : 1;
     const stride = this.stride;
     setCharacterFrame(this.sprite, dir, stride);
     const running = this.shift.isDown;
-    // Depth switches at the start when moving down, at the end when moving up, so trees/roofs overlap correctly.
-    if (dy > 0 || dx !== 0) this.sprite.setDepth(depthFor(nx + ny, 0.5));
+
+    if (v.y > 0 || v.x !== 0) this.sprite.setDepth(depthFor(ny, 0.5));
     this.world.updateGrassOverlay({ x: -99, y: -99 }, 0, false);
+
+    const destination = this.world.project(nx, ny);
     this.scene.tweens.add({
       targets: this.sprite,
-      ...this.screen({ x: nx, y: ny }),
-      duration: running ? STEP_MS * 0.55 : STEP_MS,
+      x: destination.x,
+      y: destination.y,
+      duration: running ? STEP_MS * 0.58 : STEP_MS,
       onUpdate: (tw) => {
         if (tw.progress > 0.55) setCharacterFrame(this.sprite, dir, 0);
         this.shadow.setPosition(this.sprite.x, this.sprite.y + 13);
       },
       onComplete: () => {
         this.moving = false;
-        this.sprite.setDepth(depthFor(nx + ny, 0.5));
-        this.shadow.setDepth(depthFor(nx + ny, 0.1));
+        this.sprite.setDepth(depthFor(ny, 0.5));
+        this.shadow.setDepth(depthFor(ny, 0.1));
         this.world.updateGrassOverlay(this.tile, this.sprite.depth, true);
         this.onStep?.(this.tile);
       },

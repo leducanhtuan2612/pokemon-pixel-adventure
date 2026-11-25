@@ -165,3 +165,11 @@
 .side-quest-actions button:last-child{background:#d6e9a4;border-color:#8cae68;color:#203522}
 .side-quest-actions button:disabled{opacity:.38;cursor:not-allowed}
 .side-quest-actions button:not(:disabled):hover{filter:brightness(1.12)}
+
+
+/* Touch D-pad: visible only on compact screens. */
+.touch-pad{display:none;position:absolute;z-index:6;left:12px;bottom:12px;grid-template-columns:repeat(3,46px);grid-template-rows:repeat(2,46px);gap:4px;touch-action:none;user-select:none;-webkit-user-select:none}
+.touch-pad button{display:grid;place-items:center;width:46px;height:46px;border:1px solid #d4e4b477;border-radius:10px;background:#14251ee8;color:#edf6d4;font-size:20px;font-weight:700;box-shadow:0 3px 0 #09130f99;touch-action:none;cursor:pointer}
+.touch-pad button:active{transform:translateY(2px);background:#36563c}
+.touch-up{grid-column:2;grid-row:1}.touch-left{grid-column:1;grid-row:2}.touch-down{grid-column:2;grid-row:2}.touch-right{grid-column:3;grid-row:2}
+@media(max-width:800px){.touch-pad{display:grid}}

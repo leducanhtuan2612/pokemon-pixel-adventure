@@ -2,6 +2,8 @@
 
 Top-down 2D pixel RPG built with Phaser 3, React, TypeScript and Vite.
 
+**Build 0.4.0 — World & Controls Refresh:** Map 1 now uses an orthogonal 32×32 tile grid (the classic FireRed/Emerald-style camera), not the earlier diamond/isometric projection. Arrow keys and WASD move in the direction shown on screen. A direction tap moves immediately, brief direction changes are buffered during a step, Shift runs, mouse/touch destination selection remains available, and a compact touch D-pad appears on smaller screens.
+
 ## Run locally
 ```bash
 npm install
@@ -20,9 +22,9 @@ The map is fully data-driven:
 
 - `src/game/data/maps/greenleaf.ts` — ASCII layout (42×30), buildings, NPCs, signs, exits and the encounter table.
 - `src/game/world/tiles.ts` — tile legend (`T` tree, `:` tall grass, `~` water, `=` path…) with collision/encounter flags.
-- `src/game/world/TilesetFactory.ts` + `pixelArt.ts` — procedurally painted 16×16 pixel-art tileset (2× scale) with path/water autotiling and character sprite sheets.
+- `src/game/world/TilesetFactory.ts` + `pixelArt.ts` — procedurally painted 32×32 square pixel-art tileset with path/water autotiling and character sprite sheets.
 - `src/game/world/WorldMap.ts` — renders the layout with a Phaser Tilemap and answers collision / interaction queries.
-- `src/game/entities/PlayerController.ts` — grid movement, tap-to-turn, 4-direction walk animation.
+- `src/game/entities/PlayerController.ts` — orthogonal 4-direction movement, immediate taps, buffered input and 4-direction walk animation.
 - `src/game/systems/EncounterSystem.ts` + `services/RandomService.ts` — weighted, rarity-aware wild encounters.
 - `src/game/ui/DialogBox.ts` — bottom text box for NPCs, signs and doors.
 

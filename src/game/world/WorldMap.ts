@@ -44,14 +44,15 @@ export class WorldMap {
     if (bad >= 0) throw new Error(`Map ${def.id}: row ${bad} has ${def.layout[bad].length} tiles, expected ${this.width}`);
   }
 
-  get pixelWidth() { return (this.width + this.height) * ISO_TILE_W / 2; }
-  get pixelHeight() { return (this.width + this.height) * ISO_TILE_H / 2; }
-  project(x: number, y: number): Point { return { x: (x - y + this.height) * ISO_TILE_W / 2, y: (x + y) * ISO_TILE_H / 2 }; }
-  /** Convert camera world coordinates back to the nearest logical isometric tile. */
+  get pixelWidth() { return this.width * ISO_TILE_W; }
+  get pixelHeight() { return this.height * ISO_TILE_H; }
+  /** Tile-center projection for a classic orthogonal top-down map. */
+  project(x: number, y: number): Point {
+    return { x: (x + 0.5) * ISO_TILE_W, y: (y + 0.5) * ISO_TILE_H };
+  }
+  /** Convert world pixels to the top-left logical tile containing the point. */
   unproject(screenX: number, screenY: number): Point {
-    const u = screenX / (ISO_TILE_W / 2) - this.height;
-    const v = screenY / (ISO_TILE_H / 2);
-    return { x: Math.round((u + v) / 2), y: Math.round((v - u) / 2) };
+    return { x: Math.floor(screenX / ISO_TILE_W), y: Math.floor(screenY / ISO_TILE_H) };
   }
 
   charAt(x: number, y: number): string {
@@ -83,19 +84,21 @@ export class WorldMap {
     for (const b of this.def.buildings) {
       const tex = ensureBuildingTexture(this.scene, b);
       const windmill = b.style === "windmill";
-      const footprint = this.project(b.x + b.w - 1, b.y + b.h - 1);
-      const width = (b.w + b.h) * ISO_TILE_W / 2;
-      const depth = depthFor(b.x + b.y + b.w + b.h - 2, 0.7);
-      this.scene.add.image(footprint.x, footprint.y - (windmill ? WINDMILL_OVERHANG : BUILDING_OVERHANG), tex).setDisplaySize(width, b.h * T + BUILDING_OVERHANG).setOrigin(0.5, 1).setDepth(depth);
+      const footprint = this.project(b.x + (b.w - 1) / 2, b.y + b.h - 1);
+      const width = b.w * T;
+      const height = b.h * T + (windmill ? WINDMILL_OVERHANG : BUILDING_OVERHANG);
+      const bottomY = footprint.y + T / 2;
+      const depth = depthFor(b.y + b.h - 1, 0.7);
+      this.scene.add.image(footprint.x, bottomY, tex).setDisplaySize(width, height).setOrigin(0.5, 1).setDepth(depth);
       if (windmill) {
-        const blades = this.scene.add.image(footprint.x, footprint.y - WINDMILL_OVERHANG + 25, PROP.blades).setDepth(depth + 0.01);
+        const blades = this.scene.add.image(footprint.x, bottomY - height + 28, PROP.blades).setDepth(depth + 0.01);
         this.scene.tweens.add({ targets: blades, angle: 360, duration: 9000, repeat: -1 });
       }
     }
     for (const it of this.def.items ?? []) {
       if (it.hidden || this.picked.has(it.id)) continue;
       const p = this.project(it.x, it.y);
-      this.itemSprites.set(it.id, this.scene.add.image(p.x, p.y - 3, PROP.itemBall).setOrigin(0.5, 0.5).setDepth(depthFor(it.x + it.y, 0.2)));
+      this.itemSprites.set(it.id, this.scene.add.image(p.x, p.y - 3, PROP.itemBall).setOrigin(0.5, 0.5).setDepth(depthFor(it.y, 0.2)));
     }
     for (const def of this.def.npcs) this.spawnNpc(def, defeated.includes(def.id));
     this.grassFront = this.scene.add.image(0, 0, PROP.grassFront).setOrigin(0, 0).setVisible(false);
@@ -109,11 +112,11 @@ export class WorldMap {
     const g = this.grassFront!;
     if (!this.isEncounterTile(tile.x, tile.y)) { g.setVisible(false); return; }
     const p = this.project(tile.x, tile.y);
-    g.setPosition(p.x - ISO_TILE_W / 2, p.y - ISO_TILE_H / 2).setScale(2, 1).setDepth(depth + 0.05).setVisible(true);
+    g.setPosition(p.x - T / 2, p.y - T / 2).setDepth(depth + 0.05).setVisible(true);
     if (!rustle) return;
     this.scene.tweens.add({ targets: g, y: g.y - 2, duration: 70, yoyo: true, repeat: 1 });
     for (let i = 0; i < 3; i++) {
-      const leaf = this.scene.add.image(tile.x * T + 8 + i * 8, tile.y * T + 18, PROP.leaf).setDepth(depth + 0.1);
+      const leaf = this.scene.add.image(p.x - 8 + i * 8, p.y + 2, PROP.leaf).setDepth(depth + 0.1);
       this.scene.tweens.add({ targets: leaf, x: leaf.x + (i - 1) * 10, y: leaf.y - 10 - i * 3, alpha: 0, angle: 90, duration: 380, onComplete: () => leaf.destroy() });
     }
   }
@@ -123,8 +126,8 @@ export class WorldMap {
     const p = this.project(to.x, to.y), x = p.x, y = p.y;
     this.scene.tweens.add({ targets: n.sprite, x, y, duration: 300 });
     this.scene.tweens.add({ targets: n.shadow, x, y: y + 13, duration: 300 });
-    n.sprite.setDepth(depthFor(to.x + to.y, 0.5));
-    n.shadow.setDepth(depthFor(to.x + to.y, 0.1));
+    n.sprite.setDepth(depthFor(to.y, 0.5));
+    n.shadow.setDepth(depthFor(to.y, 0.1));
   }
 
   faceNpc(n: NpcRuntime, dir: Direction) {
@@ -142,7 +145,7 @@ export class WorldMap {
     n.x = nx; n.y = ny;
     const critter = n.def.role === "critter";
     if (!critter) setCharacterFrame(n.sprite, dir, Math.random() < 0.5 ? 1 : 2);
-    if (dy(v) > 0 || v.x !== 0) n.sprite.setDepth(depthFor(nx + ny, 0.5));
+    if (dy(v) > 0 || v.x !== 0) n.sprite.setDepth(depthFor(ny, 0.5));
     return new Promise((res) => {
       this.scene.tweens.add({
         targets: n.sprite, x: this.project(nx, ny).x, y: this.project(nx, ny).y - (critter ? 4 : 0), duration: ms,
@@ -153,8 +156,8 @@ export class WorldMap {
         },
         onComplete: () => {
           n.moving = false;
-          n.sprite.setDepth(depthFor(nx + ny, 0.5));
-          n.shadow.setDepth(depthFor(nx + ny, 0.1));
+          n.sprite.setDepth(depthFor(ny, 0.5));
+          n.shadow.setDepth(depthFor(ny, 0.1));
           res(true);
         },
       });
@@ -245,7 +248,7 @@ export class WorldMap {
       if (!(ch === "*" || ch === "M" || ch === ":") || seed > 2 || count >= 28) continue;
       const p = this.project(x, y);
       const mote = this.scene.add.image(p.x + (seed - 6) * 2, p.y - 5 + (seed % 2) * 5, PROP.firefly)
-        .setBlendMode(Phaser.BlendModes.ADD).setScale(0.45 + seed * 0.12).setAlpha(0.25).setDepth(2 + (seed % 2) * 0.1);
+        .setBlendMode(Phaser.BlendModes.ADD).setScale(0.45 + seed * 0.12).setAlpha(0.25).setDepth(depthFor(y, 0.25));
       this.scene.tweens.add({ targets: mote, y: mote.y - 4 - seed, alpha: 0.85, scale: mote.scale * 1.45, duration: 850 + seed * 170, yoyo: true, repeat: -1, delay: seed * 120 });
       count++;
     }
@@ -254,7 +257,7 @@ export class WorldMap {
   private placeProps() {
     for (let y = 0; y < this.height; y++) for (let x = 0; x < this.width; x++) {
       const ch = this.charAt(x, y), p = this.project(x, y), left = p.x - T / 2, top = p.y - T / 2;
-      const d = depthFor(x + y, 0.2);
+      const d = depthFor(y, 0.2);
       if (ch === "T") this.scene.add.image(p.x, p.y + 16, PROP.tree).setOrigin(0.5, 1).setDepth(d + 0.4);
       else if (ch === "R") this.scene.add.image(left, top, PROP.rock).setOrigin(0, 0).setDepth(d);
       else if (ch === "S") this.scene.add.image(left, top, PROP.sign).setOrigin(0, 0).setDepth(d);
@@ -278,10 +281,10 @@ export class WorldMap {
     const pos = defeated && def.moveToWhenDefeated ? def.moveToWhenDefeated : def;
     const p = this.project(pos.x, pos.y), x = p.x, y = p.y;
     const critter = def.role === "critter";
-    const shadow = this.scene.add.image(x, y + (critter ? 10 : 13), PROP.shadow).setDepth(depthFor(pos.x + pos.y, 0.1)).setScale(critter ? 0.8 : 1);
+    const shadow = this.scene.add.image(x, y + (critter ? 10 : 13), PROP.shadow).setDepth(depthFor(pos.y, 0.1)).setScale(critter ? 0.8 : 1);
     const sprite = critter
-      ? this.scene.add.sprite(x, y - 4, spriteKey(def.speciesId ?? "pidgey", "front")).setScale(1.5).setDepth(depthFor(pos.x + pos.y, 0.5))
-      : this.scene.add.sprite(x, y, ensureCharacterTexture(this.scene, def.look), 0).setDepth(depthFor(pos.x + pos.y, 0.5));
+      ? this.scene.add.sprite(x, y - 4, spriteKey(def.speciesId ?? "pidgey", "front")).setScale(1.5).setDepth(depthFor(pos.y, 0.5))
+      : this.scene.add.sprite(x, y, ensureCharacterTexture(this.scene, def.look), 0).setDepth(depthFor(pos.y, 0.5));
     const n: NpcRuntime = { def, x: pos.x, y: pos.y, home: { x: pos.x, y: pos.y }, facing: def.facing, moving: false, sprite, shadow };
     this.faceNpc(n, def.facing);
     if (critter) this.scene.tweens.add({ targets: sprite, scaleY: 1.6, duration: 500 + Math.random() * 300, yoyo: true, repeat: -1 });
