@@ -201,8 +201,13 @@ export function buildAtlas(scene: Phaser.Scene, key: string, descriptors: string
     ctx.lineTo(x, y + ISO_TILE_H / 2);
     ctx.closePath(); ctx.clip();
     ctx.drawImage(source, x, y, ISO_TILE_W, ISO_TILE_H);
-    // Fine bevel and soft ambient edge separate adjacent terrain diamonds.
-    ctx.strokeStyle = "rgba(20,36,42,0.34)"; ctx.lineWidth = 1;
+    // Quiet contact edge: keep terrain readable without the heavy wire-grid look.
+    ctx.strokeStyle = "rgba(25,42,34,0.12)"; ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + ISO_TILE_W / 2, y + 1);
+    ctx.lineTo(x + ISO_TILE_W - 1, y + ISO_TILE_H / 2);
+    ctx.strokeStyle = "rgba(225,255,198,0.14)"; ctx.lineWidth = 1;
     ctx.stroke();
     ctx.restore();
     index.set(d, i);
