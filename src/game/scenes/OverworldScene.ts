@@ -11,7 +11,7 @@ import type { Direction, NpcDef, Point } from "../world/types";
 import type { BattleSetup } from "../battle/BattleEngine";
 import type { BattleResult, BattleSceneData } from "./BattleScene";
 import { isUiOpen, useGameStore } from "../../state/gameStore";
-import { objectiveFor } from "../core/objectives";
+import { questFor } from "../core/objectives";
 
 const opposite: Record<Direction, Direction> = { up: "down", down: "up", left: "right", right: "left" };
 
@@ -25,6 +25,12 @@ export class OverworldScene extends Phaser.Scene {
   private lastTile: Point = { x: 0, y: 0 };
   private awaitingStarter = false;
   private cutscene = false;
+  private autoPath: Point[] = [];
+  private autoPathIndex = 0;
+  private autoNpcId: string | undefined;
+  private autoQuestLabel = "";
+  private autoQuestArrival = "";
+  private autoNavigating = false;
 
   constructor() { super("OverworldScene"); }
 
@@ -55,15 +61,17 @@ export class OverworldScene extends Phaser.Scene {
 
     const offSession = session.on(() => this.onSessionChange());
     window.addEventListener("game:start", this.onStart);
-    const cleanup = () => { window.removeEventListener("game:start", this.onStart); offSession(); };
+    window.addEventListener("game:quest-navigate", this.onQuestNavigate);
+    const cleanup = () => { window.removeEventListener("game:start", this.onStart); window.removeEventListener("game:quest-navigate", this.onQuestNavigate); offSession(); };
     this.events.once("shutdown", cleanup);
     this.events.once("destroy", cleanup);
     if ((window as unknown as { __ppaStarted?: boolean }).__ppaStarted) this.onStart();
   }
 
   update(time: number) {
-    this.player.locked = !this.started || this.inBattle || this.dialog.isOpen || isUiOpen() || this.cutscene;
+    this.player.locked = !this.started || this.inBattle || this.dialog.isOpen || isUiOpen() || this.cutscene || this.autoNavigating;
     this.player.update(time);
+    this.updateQuestNavigation();
   }
 
   /* ---------------------------------------------------------------- */
@@ -93,8 +101,97 @@ export class OverworldScene extends Phaser.Scene {
   }
 
   private openMenu() {
+    if (this.autoNavigating) { this.cancelQuestNavigation("Đã hủy tự động di chuyển."); return; }
     if (this.dialog.isOpen || this.inBattle || !this.started || isUiOpen()) return;
     useGameStore.getState().open("menu");
+  }
+
+  private onQuestNavigate = () => {
+    if (!this.started || this.inBattle || this.dialog.isOpen || this.cutscene) return;
+    const quest = questFor(this.save);
+    this.autoNpcId = quest.target.npcId;
+    this.autoQuestLabel = quest.target.label;
+    this.autoQuestArrival = quest.target.arrival;
+    const npc = this.autoNpcId ? this.world.npcs.find((n) => n.def.id === this.autoNpcId) : undefined;
+    const target = npc ? { x: npc.x, y: npc.y } : quest.target.tile;
+    if (!target) return;
+    const goals: Point[] = npc
+      ? [{ x: target.x, y: target.y - 1 }, { x: target.x + 1, y: target.y }, { x: target.x, y: target.y + 1 }, { x: target.x - 1, y: target.y }]
+      : [target];
+    const path = this.findQuestPath(goals);
+    if (!path) { useGameStore.getState().notify("Không tìm được đường đến mục tiêu. Hãy thử lại."); return; }
+    this.autoPath = path; this.autoPathIndex = 0; this.autoNavigating = path.length > 0;
+    if (!this.autoNavigating) this.finishQuestNavigation();
+    else useGameStore.getState().notify("Đang tự động đi đến: " + this.autoQuestLabel);
+  };
+
+  private findQuestPath(goals: Point[]): Point[] | null {
+    const start = this.player.tile;
+    const key = (p: Point) => String(p.x) + "," + String(p.y);
+    const goalKeys = new Set(goals.filter((p) => p.x >= 0 && p.y >= 0 && p.x < this.world.width && p.y < this.world.height && !this.world.isBlocked(p.x, p.y)).map(key));
+    if (!goalKeys.size) return null;
+    const queue: Point[] = [{ ...start }];
+    const previous = new Map<string, string | null>([[key(start), null]]);
+    let found: string | undefined;
+    const dirs: Direction[] = ["up", "right", "down", "left"];
+    for (let head = 0; head < queue.length; head++) {
+      const p = queue[head], k = key(p);
+      if (goalKeys.has(k)) { found = k; break; }
+      for (const dir of dirs) {
+        const v = dir === "up" ? { x: 0, y: -1 } : dir === "right" ? { x: 1, y: 0 } : dir === "down" ? { x: 0, y: 1 } : { x: -1, y: 0 };
+        const n = { x: p.x + v.x, y: p.y + v.y }, nk = key(n);
+        if (n.x < 0 || n.y < 0 || n.x >= this.world.width || n.y >= this.world.height || previous.has(nk) || this.world.isBlocked(n.x, n.y)) continue;
+        previous.set(nk, k); queue.push(n);
+      }
+    }
+    if (!found) return null;
+    const path: Point[] = [];
+    let k: string | null = found;
+    while (k && k !== key(start)) {
+      const parts = k.split(",").map(Number);
+      path.push({ x: parts[0], y: parts[1] });
+      k = previous.get(k) ?? null;
+    }
+    return path.reverse();
+  }
+
+  private updateQuestNavigation() {
+    if (!this.autoNavigating || this.inBattle || this.dialog.isOpen || isUiOpen() || this.cutscene || this.player.isMoving) return;
+    if (this.autoPathIndex >= this.autoPath.length) { this.finishQuestNavigation(); return; }
+    const next = this.autoPath[this.autoPathIndex];
+    const dx = next.x - this.player.tile.x, dy = next.y - this.player.tile.y;
+    const dir: Direction = dx === 1 ? "right" : dx === -1 ? "left" : dy === 1 ? "down" : "up";
+    if (this.player.autoStep(dir)) this.autoPathIndex++;
+    else {
+      const quest = questFor(this.save);
+      const npc = this.autoNpcId ? this.world.npcs.find((n) => n.def.id === this.autoNpcId) : undefined;
+      const target = npc ? { x: npc.x, y: npc.y } : quest.target.tile;
+      const goals = npc && target
+        ? [{ x: target.x, y: target.y - 1 }, { x: target.x + 1, y: target.y }, { x: target.x, y: target.y + 1 }, { x: target.x - 1, y: target.y }]
+        : target ? [target] : [];
+      const path = this.findQuestPath(goals);
+      if (!path) this.cancelQuestNavigation("Đường đang bị chặn. Hãy thử lại sau.");
+      else { this.autoPath = path; this.autoPathIndex = 0; }
+    }
+  }
+
+  private finishQuestNavigation() {
+    this.autoNavigating = false; this.autoPath = []; this.autoPathIndex = 0;
+    if (this.autoNpcId) {
+      const npc = this.world.npcs.find((n) => n.def.id === this.autoNpcId);
+      if (npc && Math.abs(npc.x - this.player.tile.x) + Math.abs(npc.y - this.player.tile.y) === 1) {
+        const dx = npc.x - this.player.tile.x, dy = npc.y - this.player.tile.y;
+        this.player.face(dx === 1 ? "right" : dx === -1 ? "left" : dy === 1 ? "down" : "up");
+        this.talk(npc); return;
+      }
+    }
+    this.openDialog([this.autoQuestArrival]);
+    useGameStore.getState().notify("Đã đến: " + this.autoQuestLabel);
+  }
+
+  private cancelQuestNavigation(message: string) {
+    this.autoNavigating = false; this.autoPath = []; this.autoPathIndex = 0; this.autoNpcId = undefined;
+    useGameStore.getState().notify(message);
   }
 
   private onSessionChange() {
@@ -118,7 +215,7 @@ export class OverworldScene extends Phaser.Scene {
     return inside && !this.world.isBlocked(p.x, p.y) ? p : spawn;
   }
 
-  private objectiveText() { return objectiveFor(this.save); }
+  private objectiveText() { return questFor(this.save).description; }
 
   private onConfirm() {
     if (!this.started || this.inBattle || isUiOpen() || this.cutscene) return;
