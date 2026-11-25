@@ -49,7 +49,7 @@ export default function App() {
               {hasSave && <button onClick={() => start(false)}>TIẾP TỤC <span>→</span></button>}
               <button className={hasSave ? "secondary" : ""} onClick={() => (hasSave ? start(true) : start(false))}>{hasSave ? "GAME MỚI" : "BẮT ĐẦU PHIÊU LƯU"} <span>→</span></button>
             </div>
-            <small>WASD / ← ↑ → ↓ để di chuyển · Z/Enter tương tác · ESC menu</small>
+            <small>WASD / ← ↑ → ↓ di chuyển · Click đi tới · Lăn chuột zoom · Z tương tác · ESC menu</small>
           </div>}
         </div>
         <div className="frame-bottom"><span>▲ KANTO-LIKE REGION</span><span>BUILD 0.3.0</span></div>
