@@ -144,3 +144,24 @@
 .px-qa .qa-move small{font-weight:400;color:#586874}
 .px-qa .qa-selected{outline:3px solid #e7a34a}
 @media(max-width:560px){.px-qa{inset:2%}.px-qa .qa-moves{grid-template-columns:1fr}.px-qa-body{padding:10px}}
+
+
+/* Greenleaf quest board and Moonlit Grove environmental polish */
+.side-quest-heading{display:flex;justify-content:space-between;align-items:center}
+.side-quest-heading b{font:10px "DM Mono",monospace;color:#d6e9a4}
+.side-quest-list{display:grid;gap:9px;max-height:470px;overflow:auto;padding:1px 4px 4px 0;scrollbar-width:thin;scrollbar-color:#526b59 #1a252b}
+.side-quest{padding:10px;border:1px solid #35484a;border-radius:9px;background:linear-gradient(145deg,#1d2b31,#18232a);box-shadow:inset 2px 0 #526b59}
+.side-quest.is-complete{border-color:#6a8655;box-shadow:inset 2px 0 #d6e9a4}
+.side-quest.is-claimed{opacity:.68}
+.side-quest-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.side-quest-top strong{font-size:11px;color:#dce9df;line-height:1.4}
+.side-quest-top span{flex-shrink:0;font:8px "DM Mono",monospace;color:#a7c18b}
+.side-quest p{font-size:10px;line-height:1.55;color:#9fb2b5;margin:6px 0}
+.side-quest-bar{height:5px;border-radius:9px;background:#10191e;overflow:hidden;margin:7px 0}
+.side-quest-bar span{display:block;height:100%;background:linear-gradient(90deg,#4f9b78,#d6e9a4);border-radius:9px;transition:width .3s}
+.side-quest small{display:block;color:#778f99;font-size:8px;line-height:1.5}
+.side-quest-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.side-quest-actions button{border:1px solid #435c58;border-radius:5px;padding:7px 4px;background:#263b3d;color:#cde0d6;font:700 8px "DM Mono",monospace;cursor:pointer}
+.side-quest-actions button:last-child{background:#d6e9a4;border-color:#8cae68;color:#203522}
+.side-quest-actions button:disabled{opacity:.38;cursor:not-allowed}
+.side-quest-actions button:not(:disabled):hover{filter:brightness(1.12)}
