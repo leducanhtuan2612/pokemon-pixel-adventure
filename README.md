@@ -9,7 +9,11 @@ npm run dev
 ```
 Open the local URL Vite prints (normally http://localhost:5173). Stop the server with Ctrl+C.
 
-## Greenleaf Village — map 1
+## Làng Lá Xanh (Greenleaf Village) — map 1
+Ruby/Sapphire-inspired countryside: homes, Birch Lab, spinning windmill, farms, well, orchard, stream with bridge and pond, then Route 101. Villagers and wild Pokémon wander, trainers spot you ("!") and walk over, items (visible + hidden) can be picked up, Birch rewards 5 Pokédex entries, and wild Pokémon have a 1/128 shiny chance.
+
+Move effects (`src/game/battle/fx/MoveFx.ts`) are anime-style additive glows — fireballs, water jets, layered lightning, vine whips, razor leaves, poison needles, tornadoes, psychic rings, claws, jaws, shields and magic circles — with the stage dimmed during each move. Every move learned by map-1 Pokémon has a signature effect; other moves fall back to their type.
+
 Overworld art is painted procedurally: FireRed-style autotiled paths/sand/water (animated), 2-tile trees that hide the player, tall grass that covers the player's legs, shingled houses with pixel-font plaques, shadows and a VT323 pixel font with Vietnamese support.
 
 The map is fully data-driven:

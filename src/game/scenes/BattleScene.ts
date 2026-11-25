@@ -4,10 +4,11 @@ import { hasBack, shinyKey, spriteKey } from "../battle/sprites";
 import { ITEMS, getItem } from "../data/items";
 import { getMove, type MoveData } from "../data/moves";
 import { getSpecies } from "../data/species";
-import { TYPE_COLORS, TYPE_VI, categoryOf, type PokemonType } from "../data/types";
+import { TYPE_COLORS, TYPE_VI, categoryOf } from "../data/types";
 import { STATUS_COLOR, STATUS_LABEL, displayName, evolve, maxHp, type PokemonInstance } from "../core/pokemon";
 import { CHAR_FRAME, ensureCharacterTexture } from "../world/TilesetFactory";
 import { UI_FONT } from "../ui/DialogBox";
+import { MoveFx } from "../battle/fx/MoveFx";
 
 export interface BattleResult { outcome: Outcome; prizeMoney: number }
 export interface BattleSceneData { setup: BattleSetup; onEnd: (r: BattleResult) => void }
@@ -55,6 +56,7 @@ export class BattleScene extends Phaser.Scene {
   private idle: Partial<Record<Side, Phaser.Tweens.Tween>> = {};
   private lastAction = 0;
   private lastMove = 0;
+  private fx!: MoveFx;
 
   constructor() { super("BattleScene"); }
 
@@ -64,6 +66,7 @@ export class BattleScene extends Phaser.Scene {
     this.engine = new BattleEngine(this.data_.setup);
     this.makeFxTextures();
     this.drawBackground();
+    this.fx = new MoveFx(this);
     this.foeSprite = this.add.image(FOE.x, FOE.y, "__DEFAULT").setOrigin(0.5, 1).setVisible(false).setDepth(5);
     this.playerSprite = this.add.image(PLAYER.x, PLAYER.y, "__DEFAULT").setOrigin(0.5, 1).setVisible(false).setDepth(6);
     this.foeBox = this.makeInfoBox(18, 20, false);
@@ -507,209 +510,9 @@ export class BattleScene extends Phaser.Scene {
   private async moveFx(side: Side, move: MoveData) {
     const user = side === "player" ? this.playerSprite : this.foeSprite;
     const target = side === "player" ? this.foeSprite : this.playerSprite;
-    const color = hex(TYPE_COLORS[move.type] ?? "#a8a878");
-    const damaging = move.power > 0 || move.fixedDamage !== undefined || move.ohko;
-    const selfTarget = !damaging && !move.status && !move.confuse && !move.leechSeed && (move.stats?.every((s) => s.target === "self") ?? true);
-    const dir = side === "player" ? 1 : -1;
     this.stopIdle(side);
-    if (!damaging) {
-      await this.auraFx(selfTarget ? user : target, color, selfTarget);
-      this.startIdle(side);
-      return;
-    }
-    const physical = categoryOf(move.type) === "physical";
-    if (physical && !["Rock", "Ground"].includes(move.type)) {
-      await this.tween({ targets: user, x: user.x + 34 * dir, y: user.y - 12 * dir, duration: 110, yoyo: true, ease: "Quad.easeOut" });
-    }
+    await this.fx.play(move, side, user, target);
     this.startIdle(side);
-    const from = this.center(user), to = this.center(target);
-    switch (move.type as PokemonType) {
-      case "Fire": case "Dragon": await this.flameFx(from, to, move.type === "Fire" ? [0xf8d030, 0xf88830, 0xe04020] : [0xa080f8, 0x7038f8, 0x4828a8]); break;
-      case "Water": await this.waterFx(from, to); break;
-      case "Electric": await this.boltFx(to); break;
-      case "Grass": await this.leafFx(from, to); break;
-      case "Ice": await this.shardFx(from, to); break;
-      case "Psychic": await this.ringFx(to, 0xf878a8, target); break;
-      case "Poison": await this.bubbleFx(to, 0xa040a0); break;
-      case "Ground": await this.quakeFx(to); break;
-      case "Rock": await this.rockFx(to); break;
-      case "Flying": await this.slashFx(to, 0xffffff, 3); break;
-      case "Bug": await this.swarmFx(to, 0xa8b820); break;
-      case "Ghost": await this.orbFx(from, to, 0x584878, target); break;
-      case "Dark": await this.slashFx(to, 0x302838, 2); break;
-      case "Steel": await this.slashFx(to, 0xc8c8e0, 2, true); break;
-      case "Fighting": await this.impactFx(to, 0xf8a040, 3); break;
-      default: await this.impactFx(to, 0xffffff, 1); break;
-    }
-    void color;
-  }
-
-  private async auraFx(s: Phaser.GameObjects.Image, color: number, rising: boolean) {
-    const c = this.center(s);
-    s.setTintFill(color);
-    this.time.delayedCall(120, () => s.clearTint());
-    const parts = Array.from({ length: 12 }, (_, i) => {
-      const a = (i / 12) * Math.PI * 2, r = 50;
-      const p = this.particle("fx-dot", c.x + Math.cos(a) * r, c.y + Math.sin(a) * r * 0.6 + (rising ? 30 : -30), lighten(color, 20)).setScale(1.2);
-      return this.tween({ targets: p, x: c.x + Math.cos(a) * 18, y: c.y + (rising ? -30 : 20), alpha: 0, duration: 520, delay: i * 25 }).then(() => p.destroy());
-    });
-    await Promise.all(parts);
-  }
-
-  private async flameFx(from: { x: number; y: number }, to: { x: number; y: number }, cols: number[]) {
-    const shots = Array.from({ length: 12 }, (_, i) => {
-      const p = this.particle("fx-dot", from.x, from.y, cols[i % 3]).setScale(1.9 - (i % 3) * 0.4);
-      return this.tween({ targets: p, x: to.x + Phaser.Math.Between(-14, 14), y: to.y + Phaser.Math.Between(-12, 12), duration: 300, delay: i * 30 }).then(() => p.destroy());
-    });
-    await Promise.all(shots);
-    const burst = Array.from({ length: 14 }, (_, i) => {
-      const p = this.particle("fx-dot", to.x + Phaser.Math.Between(-30, 30), to.y + Phaser.Math.Between(0, 30), cols[i % 3]).setScale(1.6);
-      return this.tween({ targets: p, y: p.y - 50 - (i % 4) * 10, scale: 0.1, alpha: 0, duration: 520, delay: i * 18 }).then(() => p.destroy());
-    });
-    await Promise.all(burst);
-  }
-
-  private async waterFx(from: { x: number; y: number }, to: { x: number; y: number }) {
-    const drops = Array.from({ length: 14 }, (_, i) => {
-      const p = this.particle("fx-dot", from.x, from.y, i % 2 ? 0x88c0f8 : 0x4888e0).setScale(1.2);
-      const t = { v: 0 };
-      return this.tween({ targets: t, v: 1, duration: 360, delay: i * 26, onUpdate: () => {
-        p.x = Phaser.Math.Linear(from.x, to.x, t.v);
-        p.y = Phaser.Math.Linear(from.y, to.y, t.v) - Math.sin(t.v * Math.PI) * 40;
-      } }).then(() => p.destroy());
-    });
-    await Promise.all(drops);
-    const ring = this.particle("fx-ring", to.x, to.y + 20, 0xa8d8ff).setScale(0.3, 0.12);
-    const splash = Array.from({ length: 10 }, (_, i) => {
-      const p = this.particle("fx-dot", to.x, to.y + 10, 0x88c0f8).setScale(0.9);
-      return this.tween({ targets: p, x: to.x + (i - 5) * 9, y: to.y - 30 + Math.abs(i - 5) * 6, alpha: 0, duration: 420 }).then(() => p.destroy());
-    });
-    await Promise.all([...splash, this.tween({ targets: ring, scaleX: 1.6, scaleY: 0.5, alpha: 0, duration: 420 })]);
-    ring.destroy();
-  }
-
-  private async boltFx(to: { x: number; y: number }) {
-    for (let b = 0; b < 3; b++) {
-      const g = this.add.graphics().setDepth(33);
-      const pts: Phaser.Math.Vector2[] = [];
-      let x = to.x + Phaser.Math.Between(-30, 30), y = 0;
-      while (y < to.y + 20) { pts.push(new Phaser.Math.Vector2(x, y)); x += Phaser.Math.Between(-16, 16); y += 18; }
-      g.lineStyle(10, 0xf8d030, 1).strokePoints(pts);
-      g.lineStyle(4, 0xffffff, 1).strokePoints(pts);
-      this.cameras.main.flash(60, 255, 240, 160);
-      await this.wait(130);
-      g.destroy();
-      await this.wait(40);
-    }
-    await this.impactFx(to, 0xf8e070, 1);
-  }
-
-  private async leafFx(from: { x: number; y: number }, to: { x: number; y: number }) {
-    const leaves = Array.from({ length: 10 }, (_, i) => {
-      const p = this.particle("fx-leaf2", from.x, from.y, i % 2 ? 0x58b848 : 0x88d860).setScale(2);
-      const t = { v: 0 }, phase = i * 0.7;
-      return this.tween({ targets: t, v: 1, duration: 480, delay: i * 35, onUpdate: () => {
-        p.x = Phaser.Math.Linear(from.x, to.x, t.v) + Math.sin(t.v * 8 + phase) * 16;
-        p.y = Phaser.Math.Linear(from.y, to.y, t.v) + Math.cos(t.v * 8 + phase) * 10;
-        p.rotation = t.v * 12;
-      } }).then(() => p.destroy());
-    });
-    await Promise.all(leaves);
-    await this.impactFx(to, 0xa8e080, 1);
-  }
-
-  private async shardFx(from: { x: number; y: number }, to: { x: number; y: number }) {
-    const shards = Array.from({ length: 8 }, (_, i) => {
-      const p = this.particle("fx-shard", from.x, from.y, i % 2 ? 0xd8f8ff : 0x98d8f0).setScale(2);
-      p.rotation = Phaser.Math.Angle.Between(from.x, from.y, to.x, to.y) + Math.PI / 2;
-      return this.tween({ targets: p, x: to.x + Phaser.Math.Between(-20, 20), y: to.y + Phaser.Math.Between(-20, 20), duration: 300, delay: i * 40 }).then(() => p.destroy());
-    });
-    await Promise.all(shards);
-    const target = to.x > W / 2 ? this.foeSprite : this.playerSprite;
-    target.setTint(0xa8e0ff);
-    await this.wait(260);
-    target.clearTint();
-  }
-
-  private async ringFx(to: { x: number; y: number }, color: number, target: Phaser.GameObjects.Image) {
-    const rings = [0, 1, 2].map((i) => {
-      const r = this.particle("fx-ring", to.x, to.y, color).setScale(0.2).setAlpha(0.9);
-      return this.tween({ targets: r, scale: 2.2, alpha: 0, duration: 520, delay: i * 140 }).then(() => r.destroy());
-    });
-    const sx = target.scaleX;
-    this.tweens.add({ targets: target, scaleX: sx * 0.85, duration: 90, yoyo: true, repeat: 3 });
-    await Promise.all(rings);
-  }
-
-  private async bubbleFx(to: { x: number; y: number }, color: number) {
-    const b = Array.from({ length: 12 }, (_, i) => {
-      const p = this.particle("fx-ring", to.x + Phaser.Math.Between(-36, 36), to.y + 30, color).setScale(0.25 + (i % 3) * 0.1);
-      return this.tween({ targets: p, y: to.y - 40 - (i % 4) * 8, alpha: 0, duration: 600, delay: i * 40 }).then(() => p.destroy());
-    });
-    await Promise.all(b);
-  }
-
-  private async quakeFx(to: { x: number; y: number }) {
-    this.cameras.main.shake(420, 0.012);
-    const dust = Array.from({ length: 12 }, (_, i) => {
-      const p = this.particle("fx-dot", to.x + (i - 6) * 9, to.y + 40, i % 2 ? 0xc8a868 : 0x987848).setScale(1.4);
-      return this.tween({ targets: p, y: to.y + 10 - (i % 3) * 10, alpha: 0, duration: 450, delay: i * 25 }).then(() => p.destroy());
-    });
-    await Promise.all(dust);
-  }
-
-  private async rockFx(to: { x: number; y: number }) {
-    const rocks = Array.from({ length: 4 }, (_, i) => {
-      const p = this.add.image(to.x + (i - 1.5) * 26, -20, "fx-rock").setDepth(33).setScale(2.2);
-      return this.tween({ targets: p, y: to.y + 10, duration: 320, delay: i * 90, ease: "Quad.easeIn" }).then(() => {
-        this.cameras.main.shake(60, 0.006);
-        return this.tween({ targets: p, alpha: 0, y: p.y + 6, duration: 160 });
-      }).then(() => p.destroy());
-    });
-    await Promise.all(rocks);
-  }
-
-  private async slashFx(to: { x: number; y: number }, color: number, count: number, sparkle = false) {
-    for (let i = 0; i < count; i++) {
-      const g = this.add.graphics().setDepth(33);
-      const off = (i - (count - 1) / 2) * 18;
-      g.lineStyle(8, color, 1).beginPath();
-      g.arc(to.x + off, to.y, 44, Math.PI * 1.15, Math.PI * 1.75);
-      g.strokePath();
-      g.setAlpha(1);
-      await this.tween({ targets: g, alpha: 0, x: 8, y: 8, duration: 180 });
-      g.destroy();
-    }
-    if (sparkle) await this.impactFx(to, 0xf8f8ff, 1);
-  }
-
-  private async swarmFx(to: { x: number; y: number }, color: number) {
-    const s = Array.from({ length: 10 }, (_, i) => {
-      const p = this.particle("fx-sq", to.x, to.y, color).setScale(1.6);
-      const t = { v: 0 }, ph = (i / 10) * Math.PI * 2;
-      return this.tween({ targets: t, v: 1, duration: 600, onUpdate: () => {
-        p.x = to.x + Math.cos(ph + t.v * 9) * (40 - t.v * 30);
-        p.y = to.y + Math.sin(ph + t.v * 9) * (24 - t.v * 18);
-      } }).then(() => p.destroy());
-    });
-    await Promise.all(s);
-  }
-
-  private async orbFx(from: { x: number; y: number }, to: { x: number; y: number }, color: number, target: Phaser.GameObjects.Image) {
-    const orb = this.particle("fx-dot", from.x, from.y, color).setScale(2.2).setAlpha(0.9);
-    await this.tween({ targets: orb, x: to.x, y: to.y, duration: 380 });
-    orb.destroy();
-    target.setTint(0x6a5080);
-    await this.ringFx(to, color, target);
-    target.clearTint();
-  }
-
-  private async impactFx(to: { x: number; y: number }, color: number, count: number) {
-    for (let i = 0; i < count; i++) {
-      const s = this.particle("fx-star", to.x + (count > 1 ? Phaser.Math.Between(-24, 24) : 0), to.y + (count > 1 ? Phaser.Math.Between(-20, 20) : 0), color).setScale(0.5);
-      await this.tween({ targets: s, scale: 2, alpha: 0, duration: 220 });
-      s.destroy();
-    }
   }
 
   private async hitAnim(side: Side, eff: number) {
