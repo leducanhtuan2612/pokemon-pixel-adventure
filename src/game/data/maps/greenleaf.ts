@@ -83,7 +83,7 @@ export const GREENLEAF: MapDefinition = {
     { id: "kid", name: "Bé Bin", x: 13, y: 10, facing: "down", look: "kid", role: "villager", wander: 2,
       dialog: ["Anh ơi! Em đố anh biết: Pokémon hệ Nước thắng hệ Lửa, hệ Lửa thắng hệ gì?", "…Hệ Cỏ! Anh giỏi quá!"] },
     { id: "oldman", name: "Cụ Ba", x: 11, y: 21, facing: "up", look: "oldman", role: "villager",
-      dialog: ["Giếng này có từ thời ông cố của ta. Nước mát lắm.", "Nghe nói ở bụi hoa phía bắc làng có ai đánh rơi đồ đấy…"] },
+      dialog: ["Ta có thể đổi mã quà cho nhà huấn luyện. Nhập MAP1-ALL-POKEMON để nhận bộ thử nghiệm, hoặc MAP1-MOVE-LAB để mở phòng thử chiêu.", "Đội thử nghiệm chỉ dành cho kiểm tra Map 1, không ảnh hưởng mục tiêu cốt truyện."] },
     { id: "girl", name: "Chị Lan", x: 18, y: 7, facing: "left", look: "girl", role: "villager", wander: 1,
       dialog: ["Vườn hoa này chị tự trồng đó. Pidgey hay đến đậu lắm.", "Giữ phím Shift để chạy nhanh nha!"] },
     { id: "pidgey1", name: "Pidgey", x: 28, y: 19, facing: "left", look: "kid", role: "critter", speciesId: "pidgey", wander: 3, dialog: ["Pidgey: Pi pi! ♪"] },
