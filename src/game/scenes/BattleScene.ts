@@ -657,14 +657,15 @@ export class BattleScene extends Phaser.Scene {
     const buttons = mon.moves.map((m, i) => {
       const d = getMove(m.id), col = hex(TYPE_COLORS[d.type] ?? "#a8a878");
       const x = 10 + (i % 2) * (bw + 6), y = PANEL_Y + 8 + Math.floor(i / 2) * (bh + 6);
-      const name = this.text(12, 4, d.name, 26, "#ffffff", true);
-      const pp = this.text(bw - 10, 22, `${m.pp}/${m.maxPp}`, 20, m.pp === 0 ? "#ffd0d0" : "#ffffff", true).setOrigin(1, 0);
+      const name = this.text(12, 3, d.name, 23, "#ffffff", true);
+      const detail = this.text(12, 25, `${TYPE_VI[d.type]} · ${d.power ? (categoryOf(d.type) === "physical" ? "VẬT LÝ" : "ĐẶC BIỆT") : "TRẠNG THÁI"}${d.power ? ` · ${d.power} POW` : ""}`, 15, "#fff0b8", true);
+      const pp = this.text(bw - 10, 25, `PP ${m.pp}/${m.maxPp}`, 16, m.pp === 0 ? "#ffd0d0" : "#ffffff", true).setOrigin(1, 0);
       const b = this.button(x, y, bw, bh, i, (gr, f) => {
         gr.fillStyle(darken(col, 35), 1).fillRoundedRect(0, 2, bw, bh, 9);
         gr.fillStyle(f ? lighten(col, 8) : darken(col, 8), 1).fillRoundedRect(0, 0, bw, bh - 2, 9);
         gr.fillStyle(0xffffff, 0.2).fillRoundedRect(4, 3, bw - 8, 10, 5);
         if (f) gr.lineStyle(3, 0xffffff, 1).strokeRoundedRect(1, 1, bw - 2, bh - 4, 8);
-      }, [name, pp]);
+      }, [name, detail, pp]);
       b.enabled = m.pp > 0;
       if (!b.enabled) b.root.setAlpha(0.55);
       return b;
