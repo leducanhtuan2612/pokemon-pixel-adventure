@@ -135,5 +135,5 @@ export function healPokemon(mon: PokemonInstance) {
   mon.moves.forEach((m) => (m.pp = m.maxPp));
 }
 
-export const STATUS_LABEL: Record<StatusCondition, string> = { brn: "BRN", psn: "PSN", par: "PAR", slp: "SLP" };
-export const STATUS_COLOR: Record<StatusCondition, string> = { brn: "#e05830", psn: "#a040a0", par: "#d8b020", slp: "#8888a0" };
+export const STATUS_LABEL: Record<StatusCondition, string> = { brn: "BRN", psn: "PSN", par: "PAR", slp: "SLP", frz: "FRZ" };
+export const STATUS_COLOR: Record<StatusCondition, string> = { brn: "#e05830", psn: "#a040a0", par: "#d8b020", slp: "#8888a0", frz: "#58b8e0" };

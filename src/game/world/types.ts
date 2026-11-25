@@ -52,6 +52,9 @@ export interface BuildingDef {
   wall: number;
   door: Point;
   doorText: string[];
+  /** Pixel-font sign on the roof edge. */
+  plaque?: string;
+  chimney?: boolean;
 }
 
 export interface SignDef { x: number; y: number; text: string[] }

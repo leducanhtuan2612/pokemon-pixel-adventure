@@ -4,7 +4,7 @@ import { session } from "../core/GameSession";
 import { createPokemon } from "../core/pokemon";
 import { PlayerController } from "../entities/PlayerController";
 import { EncounterSystem } from "../systems/EncounterSystem";
-import { DialogBox } from "../ui/DialogBox";
+import { DialogBox, showLocationBanner } from "../ui/DialogBox";
 import { WorldMap, type NpcRuntime } from "../world/WorldMap";
 import type { Direction, NpcDef, Point } from "../world/types";
 import type { BattleSetup } from "../battle/BattleEngine";
@@ -35,7 +35,7 @@ export class OverworldScene extends Phaser.Scene {
     this.lastTile = { ...start };
     this.player = new PlayerController(this, this.world, start);
     this.player.onStep = (t) => this.onStep(t);
-    this.dialog = new DialogBox(this);
+    this.dialog = new DialogBox(this, () => this.onConfirm());
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, this.world.pixelWidth, this.world.pixelHeight);
@@ -69,6 +69,7 @@ export class OverworldScene extends Phaser.Scene {
     if (this.started) return;
     this.started = true;
     this.cameras.main.fadeIn(400, 0, 0, 0);
+    showLocationBanner(this, this.world.def.name);
     this.openDialog(!this.save.starterChosen ? this.world.def.intro : [this.world.def.name, this.objectiveText()]);
   };
 
@@ -82,10 +83,10 @@ export class OverworldScene extends Phaser.Scene {
   private onSessionChange() {
     if (this.awaitingStarter && this.save.starterChosen) {
       this.awaitingStarter = false;
-      this.time.delayedCall(150, () => this.openDialog([
+      this.time.delayedCall(150, () => (this.speaker = "Ranger Oak", this.openDialog([
         "Ranger Oak: Lựa chọn tuyệt vời! Hãy chăm sóc nó thật tốt nhé.",
         "Ta tặng thêm 5 Poké Ball. Bấm ESC để mở menu xem đội hình và túi đồ.",
-      ], () => { session.addItem("poke-ball", 5); session.changed(); }));
+      ], () => { session.addItem("poke-ball", 5); session.changed(); })));
     }
   }
 
@@ -139,6 +140,7 @@ export class OverworldScene extends Phaser.Scene {
       if (!this.save.starterChosen) {
         const back = { ...this.lastTile };
         this.save.position = { ...back };
+        this.speaker = "Ranger Oak";
         this.openDialog(["Ranger Oak: Khoan đã! Cỏ cao rất nguy hiểm khi chưa có Pokémon!", "Hãy đến gặp ta để nhận Pokémon đầu tiên."],
           () => this.player.teleport(back, opposite[this.player.facing]));
         return;
@@ -153,6 +155,7 @@ export class OverworldScene extends Phaser.Scene {
   }
 
   private interact() {
+    this.speaker = undefined;
     const f = this.player.facingTile();
     const npc = this.world.npcAt(f.x, f.y);
     if (npc) { this.talk(npc); return; }
@@ -164,6 +167,7 @@ export class OverworldScene extends Phaser.Scene {
 
   private talk(n: NpcRuntime) {
     const def = n.def;
+    this.speaker = def.name;
     this.world.faceNpc(n, opposite[this.player.facing]);
     const done = this.save.defeated.includes(def.id);
 
@@ -195,7 +199,13 @@ export class OverworldScene extends Phaser.Scene {
     this.openDialog(def.dialog, () => this.startBattle({ kind: "trainer", foeParty: team, trainerName: def.name, prize: def.prize }, def));
   }
 
-  private openDialog(pages: string[], onDone?: () => void) { this.dialog.open(pages, onDone); }
+  private speaker: string | undefined;
+  /** Opens the text box; inside talk() the NPC's name is shown as the speaker. */
+  private openDialog(pages: string[], onDone?: () => void) {
+    const speaker = this.speaker;
+    this.speaker = undefined;
+    this.dialog.open(pages.map((p) => (speaker ? p.replace(new RegExp(`^${speaker}: `), "") : p)), onDone, speaker);
+  }
 
   /* ---------------------------------------------------------------- */
   /* Battles                                                           */

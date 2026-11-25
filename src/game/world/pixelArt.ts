@@ -16,7 +16,7 @@ export function paintPattern(ctx: CanvasRenderingContext2D, pattern: Pattern, pa
     const row = pattern[y];
     for (let x = 0; x < row.length; x++) {
       const ch = row[x];
-      if (ch === "." || !palette[ch]) continue;
+      if (!palette[ch] || (ch === "." && !palette["."])) continue;
       const dx = flipX ? row.length - 1 - x : x;
       ctx.fillStyle = palette[ch];
       ctx.fillRect(ox + dx * ART_SCALE, oy + y * ART_SCALE, ART_SCALE, ART_SCALE);
@@ -127,95 +127,9 @@ export const CHARACTER_PALETTES: Record<CharacterLook, Palette> = {
   guardian: { ...base, r: "#6a3a9a", R: "#4a2a70", w: "#f0d060", h: "#e0e0f0", j: "#8a5ab8", g: "#d0b040", p: "#3a2a5a" },
 };
 
-/* ------------------------------------------------------------------ */
-/* Scenery patterns                                                    */
-/* ------------------------------------------------------------------ */
-
-export const TREE: Pattern = [
-  ".....kkkkkk.....",
-  "...kkGGGGGGkk...",
-  "..kGGLLGGGGGGk..",
-  ".kGGLLLGGGGGGGk.",
-  ".kGLLGGGGGGDGGk.",
-  "kGGLGGGGGGGGDGGk",
-  "kGGGGGGGGGGDGGGk",
-  "kGGGGGGGGGGGGDGk",
-  "kDGGGGGGGGGGGDGk",
-  ".kDGGGGGGGGGDDk.",
-  ".kDDGGGGGGGDDDk.",
-  "..kkDDDDDDDDkk..",
-  "....kkttttkk....",
-  ".....kttttk.....",
-  "....yktttTky....",
-  "....yykkkkyy....",
-];
-export const TREE_PALETTE: Palette = { k: "#1c3a28", G: "#3c8c48", L: "#70c060", D: "#2a6a3a", t: "#8a5a34", T: "#5a3a22", y: "#4a9a50" };
-
-export const ROCK: Pattern = [
-  "................",
-  "................",
-  "................",
-  "................",
-  ".....kkkkkk.....",
-  "...kkLLLLwwkk...",
-  "..kLLLLLLLLwLk..",
-  "..kLLLLLLLLLLk..",
-  ".kLLLLLLLLLLDDk.",
-  ".kLLLLLLLLLDDDk.",
-  ".kDLLLLLLLDDDDk.",
-  ".kDDDDDDDDDDDDk.",
-  "..kkkkkkkkkkkk..",
-  "...yyyyyyyyyy...",
-  "................",
-  "................",
-];
-export const ROCK_PALETTE: Palette = { k: "#3a3440", L: "#b0a8a0", w: "#e8e0d8", D: "#7a7068", y: "#4f9a52" };
-
-export const SIGN: Pattern = [
-  "................",
-  "................",
-  "..kkkkkkkkkkkk..",
-  "..kWWWWWWWWWWk..",
-  "..kWddWdddWWWk..",
-  "..kWWWWWWWWWWk..",
-  "..kWdddWddWWWk..",
-  "..kWWWWWWWWWWk..",
-  "..kDDDDDDDDDDk..",
-  "..kkkkkkkkkkkk..",
-  ".......kk.......",
-  ".......kk.......",
-  ".......kk.......",
-  "......yKKy......",
-  ".....yyyyyy.....",
-  "................",
-];
-export const SIGN_PALETTE: Palette = { k: "#4a2e1c", W: "#e0b070", d: "#8a5a30", D: "#b08048", K: "#4a2e1c", y: "#4f9a52" };
-
-export const TALL_GRASS: Pattern = [
-  "..l...l...l...l.",
-  ".lL..lL..lL..lL.",
-  ".LL.lLL..LL.lLL.",
-  "lLGLlLGl.LGLlLGl",
-  "LGGLLGGLLGGLLGGL",
-  "GGGGGGGGGGGGGGGG",
-  "GDGGGDGGGDGGGDGG",
-  "DDDDDDDDDDDDDDDD",
-  "..l...l...l...l.",
-  ".lL..lL..lL..lL.",
-  ".LL.lLL..LL.lLL.",
-  "lLGLlLGl.LGLlLGl",
-  "LGGLLGGLLGGLLGGL",
-  "GGGGGGGGGGGGGGGG",
-  "GDGGGDGGGDGGGDGG",
-  "DDDDDDDDDDDDDDDD",
-];
-export const TALL_GRASS_PALETTE: Palette = { l: "#b8f090", L: "#68c050", G: "#3e9a40", D: "#2a6e30" };
-
-/** Throws early in dev if any pattern row is not 16 wide — keeps art honest. */
+/** Throws early in dev if any character frame is not 16×16 — keeps art honest. */
 export function validatePatterns() {
-  const all: [string, Pattern][] = [["tree", TREE], ["rock", ROCK], ["sign", SIGN], ["grass", TALL_GRASS],
-    ...CHARACTER_FRAMES.map((f, i) => [`char${i}`, f.pattern] as [string, Pattern])];
-  for (const [name, p] of all) {
-    if (p.length !== 16 || p.some((r) => r.length !== 16)) throw new Error(`Pattern ${name} must be 16×16`);
-  }
+  CHARACTER_FRAMES.forEach((f, i) => {
+    if (f.pattern.length !== 16 || f.pattern.some((r) => r.length !== 16)) throw new Error(`Character frame ${i} must be 16×16`);
+  });
 }

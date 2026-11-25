@@ -1,24 +1,35 @@
 import Phaser from "phaser";
-import { PATH_LIKE, WATER_LIKE, ruleFor } from "./tiles";
+import { ruleFor } from "./tiles";
 import {
-  CHAR_FRAME, TILESET_KEY, TILE_INDEX, TILE_SIZE, ensureCharacterTexture, ensureTileset,
+  BUILDING_OVERHANG, CHAR_FRAME, E, N, NE, NW, PROP, S, SE, SW, TILE_SIZE, W,
+  buildAtlas, ensureBuildingTexture, ensureCharacterTexture, ensurePropTextures,
 } from "./TilesetFactory";
 import type { BuildingDef, Direction, ExitDef, MapDefinition, NpcDef, Point, SignDef } from "./types";
 
 const key = (x: number, y: number) => `${x},${y}`;
+const T = TILE_SIZE;
 
-export interface NpcRuntime { def: NpcDef; x: number; y: number; sprite: Phaser.GameObjects.Sprite; label: Phaser.GameObjects.Text }
+export interface NpcRuntime { def: NpcDef; x: number; y: number; sprite: Phaser.GameObjects.Sprite; shadow: Phaser.GameObjects.Image }
+
+interface AnimatedCell { x: number; y: number; frames: number[] }
+
+/** Depth for y-sorted objects standing on tile row `y`. */
+export const depthFor = (y: number, bias = 0) => 10 + y + bias;
 
 /**
- * Runtime view of a MapDefinition: renders it with a Phaser Tilemap and
- * answers spatial questions (collision, encounters, what's at a tile).
- * Gameplay never reads the ASCII layout directly.
+ * Runtime view of a MapDefinition: renders ground with a Phaser Tilemap built
+ * from an on-the-fly autotiled atlas, places y-sorted props (2-tile trees,
+ * buildings, fences…) and answers spatial questions for gameplay.
  */
 export class WorldMap {
   readonly width: number;
   readonly height: number;
   readonly npcs: NpcRuntime[] = [];
   private tilemap?: Phaser.Tilemaps.Tilemap;
+  private layer?: Phaser.Tilemaps.TilemapLayer;
+  private animated: AnimatedCell[] = [];
+  private animTick = 0;
+  private grassFront?: Phaser.GameObjects.Image;
 
   constructor(private scene: Phaser.Scene, readonly def: MapDefinition) {
     this.height = def.layout.length;
@@ -27,8 +38,8 @@ export class WorldMap {
     if (bad >= 0) throw new Error(`Map ${def.id}: row ${bad} has ${def.layout[bad].length} tiles, expected ${this.width}`);
   }
 
-  get pixelWidth() { return this.width * TILE_SIZE; }
-  get pixelHeight() { return this.height * TILE_SIZE; }
+  get pixelWidth() { return this.width * T; }
+  get pixelHeight() { return this.height * T; }
 
   charAt(x: number, y: number): string {
     if (x < 0 || y < 0 || x >= this.width || y >= this.height) return "T";
@@ -39,122 +50,111 @@ export class WorldMap {
   signAt(x: number, y: number): SignDef | undefined { return this.def.signs.find((s) => s.x === x && s.y === y); }
   doorAt(x: number, y: number): BuildingDef | undefined { return this.def.buildings.find((b) => b.door.x === x && b.door.y === y); }
   exitAt(x: number, y: number): ExitDef | undefined { return this.def.exits.find((e) => e.x === x && e.y === y); }
-
   isBlocked(x: number, y: number) { return ruleFor(this.charAt(x, y)).solid || !!this.npcAt(x, y); }
   isEncounterTile(x: number, y: number) { return !!ruleFor(this.charAt(x, y)).encounter; }
 
-  /** Renders tile layer, buildings, NPCs and map labels. `defeated` places beaten NPCs where they belong. */
   build(defeated: readonly string[]) {
-    ensureTileset(this.scene);
-    const data = this.def.layout.map((row, y) => [...row].map((ch, x) => this.tileIndex(ch, x, y)));
-    this.tilemap = this.scene.make.tilemap({ data, tileWidth: TILE_SIZE, tileHeight: TILE_SIZE });
-    const tileset = this.tilemap.addTilesetImage(TILESET_KEY, TILESET_KEY, TILE_SIZE, TILE_SIZE, 0, 0)!;
-    this.tilemap.createLayer(0, tileset, 0, 0)!.setDepth(0);
-
-    for (const b of this.def.buildings) this.drawBuilding(b);
+    ensurePropTextures(this.scene);
+    this.buildGround();
+    this.placeProps();
+    for (const b of this.def.buildings) {
+      const tex = ensureBuildingTexture(this.scene, b);
+      this.scene.add.image(b.x * T, b.y * T - BUILDING_OVERHANG, tex).setOrigin(0, 0).setDepth(depthFor(b.y + b.h - 1, 0.7));
+    }
     for (const def of this.def.npcs) this.spawnNpc(def, defeated.includes(def.id));
-    this.drawExitMarkers();
+    this.grassFront = this.scene.add.image(0, 0, PROP.grassFront).setOrigin(0, 0).setVisible(false);
+    this.scene.time.addEvent({ delay: 420, loop: true, callback: () => this.animate() });
   }
 
   destroy() { this.tilemap?.destroy(); }
 
+  /** Shows the tall-grass blades in front of a character standing in grass (FireRed style). */
+  updateGrassOverlay(tile: Point, depth: number, rustle: boolean) {
+    const g = this.grassFront!;
+    if (!this.isEncounterTile(tile.x, tile.y)) { g.setVisible(false); return; }
+    g.setPosition(tile.x * T, tile.y * T).setDepth(depth + 0.05).setVisible(true);
+    if (!rustle) return;
+    this.scene.tweens.add({ targets: g, y: g.y - 2, duration: 70, yoyo: true, repeat: 1 });
+    for (let i = 0; i < 3; i++) {
+      const leaf = this.scene.add.image(tile.x * T + 8 + i * 8, tile.y * T + 18, PROP.leaf).setDepth(depth + 0.1);
+      this.scene.tweens.add({ targets: leaf, x: leaf.x + (i - 1) * 10, y: leaf.y - 10 - i * 3, alpha: 0, angle: 90, duration: 380, onComplete: () => leaf.destroy() });
+    }
+  }
+
   moveNpc(n: NpcRuntime, to: Point) {
     n.x = to.x; n.y = to.y;
-    this.scene.tweens.add({ targets: n.sprite, x: to.x * TILE_SIZE + 16, y: to.y * TILE_SIZE + 16, duration: 260 });
-    this.scene.tweens.add({ targets: n.label, x: to.x * TILE_SIZE + 16, y: to.y * TILE_SIZE - 6, duration: 260 });
-    n.sprite.setDepth(10 + to.y);
+    const x = to.x * T + 16, y = to.y * T + 16;
+    this.scene.tweens.add({ targets: n.sprite, x, y, duration: 300 });
+    this.scene.tweens.add({ targets: n.shadow, x, y: y + 13, duration: 300 });
+    n.sprite.setDepth(depthFor(to.y, 0.5));
   }
 
   faceNpc(n: NpcRuntime, dir: Direction) { setCharacterFrame(n.sprite, dir, 0); }
 
-  private tileIndex(ch: string, x: number, y: number): number {
-    const h = (x * 73856093) ^ (y * 19349663);
+  /* ------------------------------------------------------------ */
+
+  private mask8(x: number, y: number, same: (ch: string) => boolean) {
+    const s = (dx: number, dy: number) => {
+      const cx = x + dx, cy = y + dy;
+      if (cx < 0 || cy < 0 || cx >= this.width || cy >= this.height) return true;
+      return same(this.charAt(cx, cy));
+    };
+    return (s(0, -1) ? N : 0) | (s(1, 0) ? E : 0) | (s(0, 1) ? S : 0) | (s(-1, 0) ? W : 0)
+      | (s(1, -1) ? NE : 0) | (s(1, 1) ? SE : 0) | (s(-1, 1) ? SW : 0) | (s(-1, -1) ? NW : 0);
+  }
+
+  /** Ground descriptors per cell; animated cells get one descriptor per frame. */
+  private descriptorsAt(x: number, y: number): string[] {
+    const ch = this.charAt(x, y), h = Math.abs((x * 73856093) ^ (y * 19349663));
     switch (ch) {
-      case "*": return TILE_INDEX.flowers[Math.abs(h) % 2];
-      case ":": return TILE_INDEX.tallGrass;
-      case "T": return TILE_INDEX.tree;
-      case "R": return TILE_INDEX.rock;
-      case "S": return TILE_INDEX.sign;
-      case "C": return TILE_INDEX.cliff;
-      case "F": return TILE_INDEX.fence;
-      case "s": return TILE_INDEX.sand;
-      case "=": case "E": return TILE_INDEX.pathBase + this.mask(x, y, PATH_LIKE);
-      case "~": return TILE_INDEX.waterBase + this.mask(x, y, WATER_LIKE);
-      default: {
-        // Mostly plain ground with occasional tufted variants.
-        const r = Math.abs(h) % 10;
-        return TILE_INDEX.ground[r < 6 ? 0 : r < 8 ? 1 : r < 9 ? 2 : 3];
-      }
+      case "*": return [0, 1].map((f) => `flower:${f}:${h % 3 === 0 ? 1 : 0}`);
+      case ":": return ["tall"];
+      case "=": case "E": return [`path:${this.mask8(x, y, (c) => c === "=" || c === "E" || c === "D")}:${h % 7}`];
+      case "s": return [`sand:${this.mask8(x, y, (c) => c === "s" || c === "~")}:${h % 5}`];
+      case "~": { const m = this.mask8(x, y, (c) => c === "~"); return [0, 1, 2].map((f) => `water:${m}:${f}:${(x + y * 2) % 3}`); }
+      case "C": return [`cliff:${this.mask8(x, y, (c) => c === "C") & 15}:${y % 2}`];
+      default: return [`ground:${h % 6 === 0 ? 1 : 0}`];
     }
   }
 
-  private mask(x: number, y: number, set: Set<string>) {
-    const same = (cx: number, cy: number) => (cx < 0 || cy < 0 || cx >= this.width || cy >= this.height) ? true : set.has(this.charAt(cx, cy));
-    return (same(x, y - 1) ? 1 : 0) | (same(x + 1, y) ? 2 : 0) | (same(x, y + 1) ? 4 : 0) | (same(x - 1, y) ? 8 : 0);
+  private buildGround() {
+    const cells: string[][][] = this.def.layout.map((row, y) => [...row].map((_, x) => this.descriptorsAt(x, y)));
+    const unique = [...new Set(cells.flat(2))];
+    const atlasKey = `atlas-${this.def.id}`;
+    const index = buildAtlas(this.scene, atlasKey, unique);
+    const data = cells.map((row) => row.map((d) => index.get(d[0])!));
+    cells.forEach((row, y) => row.forEach((d, x) => { if (d.length > 1) this.animated.push({ x, y, frames: d.map((k) => index.get(k)!) }); }));
+    this.tilemap = this.scene.make.tilemap({ data, tileWidth: T, tileHeight: T });
+    const tileset = this.tilemap.addTilesetImage(atlasKey, atlasKey, T, T, 0, 0)!;
+    this.layer = this.tilemap.createLayer(0, tileset, 0, 0)!.setDepth(0);
   }
 
-  private drawBuilding(b: BuildingDef) {
-    const g = this.scene.add.graphics().setDepth(2);
-    const T = TILE_SIZE, x = b.x * T, y = b.y * T, w = b.w * T, h = b.h * T;
-    const roofH = Math.round(h * 0.55);
-    const outline = 0x2a2030;
-    const shade = Phaser.Display.Color.IntegerToColor(b.roof).darken(25).color;
-    const light = Phaser.Display.Color.IntegerToColor(b.roof).lighten(18).color;
+  private animate() {
+    this.animTick++;
+    for (const c of this.animated) {
+      const f = c.frames.length === 2 ? Math.floor(this.animTick / 2) % 2 : this.animTick % c.frames.length;
+      this.layer?.putTileAt(c.frames[f], c.x, c.y);
+    }
+  }
 
-    // Ground shadow + walls
-    g.fillStyle(0x1c3a20, 0.25).fillRect(x + 4, y + h - 2, w, 6);
-    g.fillStyle(outline, 1).fillRect(x + 2, y + roofH - 4, w - 4, h - roofH + 4);
-    g.fillStyle(b.wall, 1).fillRect(x + 4, y + roofH - 2, w - 8, h - roofH);
-    g.fillStyle(0x000000, 0.12).fillRect(x + 4, y + h - 8, w - 8, 6);
-    // Roof with shingle rows
-    g.fillStyle(outline, 1).fillRect(x, y + 4, w, roofH);
-    g.fillStyle(b.roof, 1).fillRect(x + 2, y + 6, w - 4, roofH - 6);
-    for (let r = 0; r < Math.floor((roofH - 8) / 6); r++) {
-      g.fillStyle(shade, 1).fillRect(x + 2, y + 10 + r * 6, w - 4, 2);
-      for (let c = (r % 2) * 8; c < w - 4; c += 16) g.fillStyle(shade, 1).fillRect(x + 2 + c, y + 6 + r * 6, 2, 6);
+  private placeProps() {
+    for (let y = 0; y < this.height; y++) for (let x = 0; x < this.width; x++) {
+      const ch = this.charAt(x, y);
+      if (ch === "T") this.scene.add.image(x * T + 16, (y + 1) * T, PROP.tree).setOrigin(0.5, 1).setDepth(depthFor(y, 0.6));
+      else if (ch === "R") this.scene.add.image(x * T, y * T, PROP.rock).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
+      else if (ch === "S") this.scene.add.image(x * T, y * T, PROP.sign).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
+      else if (ch === "F") this.scene.add.image(x * T, y * T, PROP.fence).setOrigin(0, 0).setDepth(depthFor(y, 0.2));
     }
-    g.fillStyle(light, 1).fillRect(x + 2, y + 6, w - 4, 2);
-    g.fillStyle(shade, 1).fillRect(x + 2, y + roofH - 2, w - 4, 2);
-    // Windows on the wall, skipping the door column.
-    for (let tx = b.x; tx < b.x + b.w; tx++) {
-      if (tx === b.door.x || tx === b.x || tx === b.x + b.w - 1) continue;
-      if ((tx - b.x) % 2 === 0) continue;
-      const wx = tx * T + 6, wy = y + roofH + 6;
-      g.fillStyle(outline, 1).fillRect(wx - 2, wy - 2, 24, 16);
-      g.fillStyle(0x88c8f0, 1).fillRect(wx, wy, 20, 12);
-      g.fillStyle(0xd8f0ff, 1).fillRect(wx + 2, wy + 2, 6, 4);
-      g.fillStyle(outline, 1).fillRect(wx + 9, wy, 2, 12);
-    }
-    // Door
-    const dx = b.door.x * T, dy = b.door.y * T;
-    g.fillStyle(outline, 1).fillRect(dx + 5, dy + 6, 22, 26);
-    g.fillStyle(0x8a5a3a, 1).fillRect(dx + 7, dy + 8, 18, 24);
-    g.fillStyle(0x6a4028, 1).fillRect(dx + 15, dy + 8, 2, 24);
-    g.fillStyle(0xf0d070, 1).fillRect(dx + 20, dy + 20, 2, 2);
-    // Name plaque
-    const plaqueY = y + roofH - 12;
-    this.scene.add.text(x + w / 2, plaqueY, b.label, {
-      fontFamily: "monospace", fontSize: "9px", color: "#3a2a20", backgroundColor: "#f6ecd0", padding: { x: 4, y: 1 },
-    }).setOrigin(0.5).setDepth(3).setResolution(2);
   }
 
   private spawnNpc(def: NpcDef, defeated: boolean) {
     const pos = defeated && def.moveToWhenDefeated ? def.moveToWhenDefeated : def;
     const texture = ensureCharacterTexture(this.scene, def.look);
-    const sprite = this.scene.add.sprite(pos.x * TILE_SIZE + 16, pos.y * TILE_SIZE + 16, texture, 0).setDepth(10 + pos.y);
+    const x = pos.x * T + 16, y = pos.y * T + 16;
+    const shadow = this.scene.add.image(x, y + 13, PROP.shadow).setDepth(depthFor(pos.y, 0.1));
+    const sprite = this.scene.add.sprite(x, y, texture, 0).setDepth(depthFor(pos.y, 0.5));
     setCharacterFrame(sprite, def.facing, 0);
-    const label = this.scene.add.text(pos.x * TILE_SIZE + 16, pos.y * TILE_SIZE - 6, def.name, {
-      fontFamily: "monospace", fontSize: "8px", color: "#ffffff", backgroundColor: "#1d3324cc", padding: { x: 3, y: 1 },
-    }).setOrigin(0.5).setDepth(40).setResolution(2);
-    this.npcs.push({ def, x: pos.x, y: pos.y, sprite, label });
-  }
-
-  private drawExitMarkers() {
-    for (const e of this.def.exits) {
-      this.scene.add.text(e.x * TILE_SIZE + 16, e.y * TILE_SIZE - 4, `${e.toName} →`, {
-        fontFamily: "monospace", fontSize: "8px", color: "#fff6d0", backgroundColor: "#4a3420", padding: { x: 3, y: 1 },
-      }).setOrigin(0.5, 1).setDepth(40).setResolution(2);
-    }
+    this.npcs.push({ def, x: pos.x, y: pos.y, sprite, shadow });
   }
 }
 

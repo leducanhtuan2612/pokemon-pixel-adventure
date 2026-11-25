@@ -1,42 +1,60 @@
 import Phaser from "phaser";
 
-const W = 600, H = 70;
+export const UI_FONT = '"VT323", monospace';
+const W = 612, H = 86;
 
 /**
- * Classic bottom-of-screen text box. While open, the scene locks player
- * movement. Advance with Enter / Space / Z.
+ * FireRed-style text box at the bottom of the screen with typewriter text,
+ * an optional speaker tab and a bouncing ▼ prompt. Advance with Z / Enter /
+ * Space or a click/tap anywhere.
  */
 export class DialogBox {
   private container: Phaser.GameObjects.Container;
   private text: Phaser.GameObjects.Text;
   private arrow: Phaser.GameObjects.Text;
+  private nameTab: Phaser.GameObjects.Container;
+  private nameText: Phaser.GameObjects.Text;
+  private nameBg: Phaser.GameObjects.Graphics;
   private pages: string[] = [];
   private index = 0;
   private onDone?: () => void;
   private typing?: Phaser.Time.TimerEvent;
   private fullText = "";
 
-  constructor(private scene: Phaser.Scene) {
-    const x = (scene.scale.width - W) / 2, y = scene.scale.height - H - 10;
+  constructor(private scene: Phaser.Scene, onClick?: () => void) {
+    const x = (scene.scale.width - W) / 2, y = scene.scale.height - H - 8;
     const g = scene.add.graphics();
-    g.fillStyle(0x2a3a48, 1).fillRoundedRect(0, 0, W, H, 8);
-    g.fillStyle(0xf8f8f0, 1).fillRoundedRect(3, 3, W - 6, H - 6, 6);
-    g.lineStyle(2, 0x6a90a8, 1).strokeRoundedRect(7, 7, W - 14, H - 14, 4);
-    this.text = scene.add.text(20, 14, "", {
-      fontFamily: "monospace", fontSize: "14px", color: "#30303a", wordWrap: { width: W - 50 }, lineSpacing: 4,
-    }).setResolution(2);
-    this.arrow = scene.add.text(W - 26, H - 26, "▼", { fontFamily: "monospace", fontSize: "12px", color: "#e04848" });
-    scene.tweens.add({ targets: this.arrow, y: H - 22, yoyo: true, repeat: -1, duration: 350 });
-    this.container = scene.add.container(x, y, [g, this.text, this.arrow]).setScrollFactor(0).setDepth(2000).setVisible(false);
+    g.fillStyle(0x000000, 0.18).fillRoundedRect(3, 4, W, H, 10);
+    g.fillStyle(0x484858, 1).fillRoundedRect(0, 0, W, H, 10);
+    g.fillStyle(0xf8f8f8, 1).fillRoundedRect(4, 4, W - 8, H - 8, 7);
+    g.lineStyle(2, 0x98a8c8, 1).strokeRoundedRect(9, 9, W - 18, H - 18, 5);
+    this.text = scene.add.text(26, 14, "", {
+      fontFamily: UI_FONT, fontSize: "26px", color: "#404048", wordWrap: { width: W - 64 }, lineSpacing: 0,
+      shadow: { offsetX: 2, offsetY: 2, color: "#d8d0c8", fill: true },
+    });
+    this.arrow = scene.add.text(W - 34, H - 34, "▼", { fontFamily: UI_FONT, fontSize: "22px", color: "#e04848" });
+    scene.tweens.add({ targets: this.arrow, y: H - 30, yoyo: true, repeat: -1, duration: 320 });
+    this.nameBg = scene.add.graphics();
+    this.nameText = scene.add.text(14, 3, "", { fontFamily: UI_FONT, fontSize: "22px", color: "#ffffff" });
+    this.nameTab = scene.add.container(14, -24, [this.nameBg, this.nameText]).setVisible(false);
+    const hit = scene.add.zone(0, 0, W, H).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    hit.on("pointerdown", () => onClick?.());
+    this.container = scene.add.container(x, y, [g, this.text, this.arrow, this.nameTab, hit]).setScrollFactor(0).setDepth(2000).setVisible(false);
   }
 
   get isOpen() { return this.container.visible; }
 
-  open(pages: string[], onDone?: () => void) {
+  open(pages: string[], onDone?: () => void, speaker?: string) {
     if (!pages.length) { onDone?.(); return; }
     this.pages = pages;
     this.index = 0;
     this.onDone = onDone;
+    if (speaker) {
+      this.nameText.setText(speaker);
+      const w = this.nameText.width + 28;
+      this.nameBg.clear().fillStyle(0x484858, 1).fillRoundedRect(0, 0, w, 30, 7).fillStyle(0x5878b8, 1).fillRoundedRect(3, 3, w - 6, 24, 5);
+      this.nameTab.setVisible(true);
+    } else this.nameTab.setVisible(false);
     this.container.setVisible(true);
     this.show();
   }
@@ -62,7 +80,7 @@ export class DialogBox {
     let i = 0;
     this.typing?.remove(false);
     this.typing = this.scene.time.addEvent({
-      delay: 18, repeat: this.fullText.length - 1,
+      delay: 16, repeat: this.fullText.length - 1,
       callback: () => { i++; this.text.setText(this.fullText.slice(0, i)); if (i >= this.fullText.length) this.finishTyping(); },
     });
   }
@@ -73,4 +91,16 @@ export class DialogBox {
     this.text.setText(this.fullText);
     this.arrow.setVisible(true);
   }
+}
+
+/** Location banner that slides in at the top-left when entering a map. */
+export function showLocationBanner(scene: Phaser.Scene, name: string) {
+  const t = scene.add.text(18, 10, name, { fontFamily: UI_FONT, fontSize: "26px", color: "#403828" });
+  const w = t.width + 36;
+  const g = scene.add.graphics();
+  g.fillStyle(0x6a4a2a, 1).fillRoundedRect(0, 0, w, 48, 6);
+  g.fillStyle(0xf8ecc8, 1).fillRoundedRect(4, 4, w - 8, 40, 4);
+  g.lineStyle(2, 0xc8a870, 1).strokeRoundedRect(8, 8, w - 16, 32, 3);
+  const c = scene.add.container(12, -60, [g, t]).setScrollFactor(0).setDepth(1900);
+  scene.tweens.add({ targets: c, y: 12, duration: 350, ease: "Back.easeOut", hold: 2200, yoyo: true, onComplete: () => c.destroy() });
 }

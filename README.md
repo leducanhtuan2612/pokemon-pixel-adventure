@@ -10,6 +10,8 @@ npm run dev
 Open the local URL Vite prints (normally http://localhost:5173). Stop the server with Ctrl+C.
 
 ## Greenleaf Village — map 1
+Overworld art is painted procedurally: FireRed-style autotiled paths/sand/water (animated), 2-tile trees that hide the player, tall grass that covers the player's legs, shingled houses with pixel-font plaques, shadows and a VT323 pixel font with Vietnamese support.
+
 The map is fully data-driven:
 
 - `src/game/data/maps/greenleaf.ts` — ASCII layout (42×30), buildings, NPCs, signs, exits and the encounter table.
@@ -26,8 +28,8 @@ Gameplay loop on this map: talk to NPCs and signs, catch Pokémon in tall grass,
 
 ## Gameplay (v0.2)
 - **Starter:** talk to Ranger Oak and pick Bulbasaur, Charmander or Squirtle.
-- **31 Pokémon** (Gen 1 lines incl. evolutions) with Gen 3 base stats, IVs, growth rates, catch rates and EXP yields.
-- **~75 moves** with type, power, accuracy, PP, priority, crits, STAB, drain/recoil, flinch, stat stages and status (burn, poison, paralysis, sleep). Full Gen 3 type chart (17 types).
+- **All 151 Kanto Pokémon** with Gen 3 base stats, types, level-up learnsets and evolutions generated from [`@pkmn/dex`](https://github.com/pkmn/ps) (MIT) via `npm run gen:data` → `src/game/data/generated/`.
+- **274 Gen 3 moves** with type, power, accuracy, PP, priority, crits, STAB, drain/recoil, flinch, multi-hit, fixed damage, OHKO, confusion, Leech Seed, Reflect/Light Screen, Protect, healing, stat stages and status (burn, poison, paralysis, sleep, freeze). A few niche moves (weather, Transform, Metronome…) have no effect yet. Full Gen 3 type chart (17 types).
 - **FireRed-style battles** (`scenes/BattleScene.ts`): FIGHT / BAG / POKéMON / RUN, animated HP & EXP bars, type-coloured attack effects, Poké Ball shakes, forced switching, multi-Pokémon trainers, smart trainer AI.
 - **Level-up:** learn moves (with "forget a move" prompt) and evolve at level or with Fire/Thunder/Leaf Stone.
 - **Menus** (React): Pokédex (seen/caught), Party (summary, stats, moves, reorder), PC Box, Bag, Poké Mart, Save.

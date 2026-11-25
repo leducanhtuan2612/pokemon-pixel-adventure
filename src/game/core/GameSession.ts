@@ -1,5 +1,6 @@
 import { START_MAP_ID } from "../data/maps";
 import { getItem } from "../data/items";
+import { normalizeMoveId } from "../data/moves";
 import { getSpecies } from "../data/species";
 import {
   createPokemon, displayName, evolve, healPokemon, itemEvolution, maxHp, type PokemonInstance,
@@ -23,7 +24,7 @@ export interface SaveData {
 }
 
 const KEY = "pixel-adventure-save-v1";
-const VERSION = 3;
+const VERSION = 4;
 export const PARTY_MAX = 6;
 
 type Listener = () => void;
@@ -40,6 +41,12 @@ function newGame(): SaveData {
 function migrate(d: Record<string, unknown>): SaveData {
   const fresh = newGame();
   if (d.version === VERSION) return { ...fresh, ...(d as Partial<SaveData>) } as SaveData;
+  if (d.version === 3) {
+    // v3 used hyphenated move ids ("quick-attack"); v4 uses Showdown ids ("quickattack").
+    const save = { ...fresh, ...(d as Partial<SaveData>), version: VERSION } as SaveData;
+    for (const mon of [...save.party, ...save.box]) mon.moves = mon.moves.map((m) => ({ ...m, id: normalizeMoveId(m.id) }));
+    return save;
+  }
   const convert = (list: unknown) => (Array.isArray(list) ? list : [])
     .filter((c): c is { speciesId: string; level: number } => !!c && typeof c === "object" && "speciesId" in c)
     .map((c) => createPokemon(getSpecies(c.speciesId).id, Math.max(2, Math.min(100, Number(c.level) || 5))));

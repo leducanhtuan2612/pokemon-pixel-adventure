@@ -30,7 +30,8 @@ const CHART: Record<PokemonType, Row> = {
 };
 
 export function effectiveness(attack: PokemonType, defender: readonly PokemonType[]): number {
-  return defender.reduce((m, t) => m * (CHART[attack][t] ?? 1), 1);
+  const row = CHART[attack] ?? {};
+  return defender.reduce((m, t) => m * (row[t] ?? 1), 1);
 }
 
 export const TYPE_COLORS: Record<PokemonType, string> = {

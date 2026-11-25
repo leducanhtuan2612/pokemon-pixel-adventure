@@ -50,11 +50,11 @@ export const GREENLEAF: MapDefinition = {
     "Sau đó đánh bại Finn, Willow và Moss, rồi thách đấu Forest Guardian ở cổng phía đông.",
   ],
   buildings: [
-    { id: "home", label: "HOME", x: 3, y: 3, w: 6, h: 4, roof: 0xc0504a, wall: 0xf1e2c4, door: { x: 6, y: 6 },
+    { id: "home", label: "HOME", x: 3, y: 3, w: 6, h: 4, roof: 0xc8584c, wall: 0xf4e6c8, chimney: true, door: { x: 6, y: 6 },
       doorText: ["Nhà của bạn. Mẹ dặn: \"Nhớ ghé Pokémon Center khi đội bị thương nhé!\""] },
-    { id: "center", label: "POKé CENTER", x: 13, y: 3, w: 7, h: 4, roof: 0xe0607a, wall: 0xf6eee4, door: { x: 16, y: 6 },
+    { id: "center", label: "POKé CENTER", x: 13, y: 3, w: 7, h: 4, roof: 0xe05060, wall: 0xf8f4ec, plaque: "POKE CENTER", door: { x: 16, y: 6 },
       doorText: ["Pokémon Center đang sửa chữa. Nurse Maple và Clerk Bea đang phục vụ ở ngay bên ngoài."] },
-    { id: "ranger", label: "RANGER HUT", x: 4, y: 16, w: 6, h: 4, roof: 0x6a7fb8, wall: 0xe6d8bc, door: { x: 7, y: 19 },
+    { id: "ranger", label: "RANGER HUT", x: 4, y: 16, w: 6, h: 4, roof: 0x5878c0, wall: 0xece0c4, plaque: "RANGER", door: { x: 7, y: 19 },
       doorText: ["Trạm Ranger đã khóa. Trên cửa ghi: \"Đang tuần tra rừng.\""] },
   ],
   npcs: [

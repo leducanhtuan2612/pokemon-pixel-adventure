@@ -28,19 +28,23 @@ export function calcDamage(
   rng: RandomService, move: MoveData,
   attacker: PokemonInstance, aStages: Stages,
   defender: PokemonInstance, dStages: Stages,
+  opts: { critStage?: number; power?: number; screen?: boolean } = {},
 ): DamageResult {
   const atkTypes = getSpecies(attacker.speciesId).types, defTypes = getSpecies(defender.speciesId).types;
   const eff = move.id === "struggle" ? 1 : effectiveness(move.type, defTypes);
   if (eff === 0) return { damage: 0, crit: false, eff };
   const physical = categoryOf(move.type) === "physical";
   const a = calcStats(attacker), d = calcStats(defender);
-  const crit = rng.chance(move.highCrit ? 1 / 8 : 1 / 16);
+  const stage = Math.min(4, (move.highCrit ? 1 : 0) + (opts.critStage ?? 0));
+  const crit = rng.chance([1 / 16, 1 / 8, 1 / 4, 1 / 3, 1 / 2][stage]);
+  const power = opts.power ?? move.power;
   // Critical hits ignore the attacker's drops and the defender's boosts.
   const aStage = physical ? aStages.atk : aStages.spa, dStage = physical ? dStages.def : dStages.spd;
   let A = Math.floor((physical ? a.atk : a.spa) * stageMultiplier(crit ? Math.max(0, aStage) : aStage));
   const D = Math.max(1, Math.floor((physical ? d.def : d.spd) * stageMultiplier(crit ? Math.min(0, dStage) : dStage)));
   if (physical && attacker.status === "brn") A = Math.floor(A / 2);
-  let dmg = Math.floor(Math.floor((Math.floor((2 * attacker.level) / 5) + 2) * move.power * A / D) / 50) + 2;
+  let dmg = Math.floor(Math.floor((Math.floor((2 * attacker.level) / 5) + 2) * power * A / D) / 50) + 2;
+  if (opts.screen && !crit) dmg = Math.floor(dmg / 2);
   if (crit) dmg *= 2;
   if (move.id !== "struggle" && atkTypes.includes(move.type)) dmg = Math.floor(dmg * 1.5);
   dmg = Math.floor(dmg * eff);

@@ -1,7 +1,7 @@
 import Phaser from "phaser";
-import { TILE_SIZE, ensureCharacterTexture } from "../world/TilesetFactory";
+import { PROP, TILE_SIZE, ensureCharacterTexture } from "../world/TilesetFactory";
 import { DIR_VECTORS, type Direction, type Point } from "../world/types";
-import { setCharacterFrame, type WorldMap } from "../world/WorldMap";
+import { depthFor, setCharacterFrame, type WorldMap } from "../world/WorldMap";
 
 const STEP_MS = 190;      // time to cross one tile
 const TURN_GRACE_MS = 90; // tap to turn in place, hold to walk (classic feel)
@@ -13,6 +13,9 @@ const TURN_GRACE_MS = 90; // tap to turn in place, hold to walk (classic feel)
  */
 export class PlayerController {
   readonly sprite: Phaser.GameObjects.Sprite;
+  private shadow: Phaser.GameObjects.Image;
+  /** Hold Shift to run (classic Running Shoes). */
+  private shift: Phaser.Input.Keyboard.Key;
   tile: Point;
   facing: Direction = "down";
   locked = false;
@@ -29,12 +32,15 @@ export class PlayerController {
   constructor(private scene: Phaser.Scene, private world: WorldMap, start: Point) {
     this.tile = { ...start };
     const texture = ensureCharacterTexture(scene, "player");
+    this.shadow = scene.add.image(start.x * TILE_SIZE + 16, start.y * TILE_SIZE + 29, PROP.shadow).setDepth(depthFor(start.y, 0.1));
     this.sprite = scene.add.sprite(start.x * TILE_SIZE + 16, start.y * TILE_SIZE + 16, texture, 0);
-    this.sprite.setDepth(10 + start.y + 0.5);
+    this.sprite.setDepth(depthFor(start.y, 0.5));
     setCharacterFrame(this.sprite, this.facing, 0);
     const kb = scene.input.keyboard!;
     this.cursors = kb.createCursorKeys();
     this.wasd = kb.addKeys("W,A,S,D") as PlayerController["wasd"];
+    this.shift = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+    world.updateGrassOverlay(this.tile, this.sprite.depth, false);
   }
 
   get isMoving() { return this.moving; }
@@ -50,8 +56,10 @@ export class PlayerController {
     this.scene.tweens.killTweensOf(this.sprite);
     this.moving = false;
     this.tile = { ...p };
-    this.sprite.setPosition(p.x * TILE_SIZE + 16, p.y * TILE_SIZE + 16).setDepth(10 + p.y + 0.5);
+    this.sprite.setPosition(p.x * TILE_SIZE + 16, p.y * TILE_SIZE + 16).setDepth(depthFor(p.y, 0.5));
+    this.shadow.setPosition(this.sprite.x, this.sprite.y + 13).setDepth(depthFor(p.y, 0.1));
     this.face(dir);
+    this.world.updateGrassOverlay(this.tile, this.sprite.depth, false);
   }
 
   update(time: number) {
@@ -80,7 +88,7 @@ export class PlayerController {
 
   private tryStep(dir: Direction) {
     const v = DIR_VECTORS[dir];
-    const nx = this.tile.x + v.x, ny = this.tile.y + v.y;
+    const nx = this.tile.x + v.x, ny = this.tile.y + v.y, dx = v.x, dy = v.y;
     if (this.world.isBlocked(nx, ny)) {
       setCharacterFrame(this.sprite, dir, 0);
       return;
@@ -90,15 +98,24 @@ export class PlayerController {
     this.stride = this.stride === 1 ? 2 : 1;
     const stride = this.stride;
     setCharacterFrame(this.sprite, dir, stride);
-    this.sprite.setDepth(10 + ny + 0.5);
+    const running = this.shift.isDown;
+    // Depth switches at the start when moving down, at the end when moving up, so trees/roofs overlap correctly.
+    if (dy > 0 || dx !== 0) this.sprite.setDepth(depthFor(ny, 0.5));
+    this.world.updateGrassOverlay({ x: -99, y: -99 }, 0, false);
     this.scene.tweens.add({
       targets: this.sprite,
       x: nx * TILE_SIZE + 16,
       y: ny * TILE_SIZE + 16,
-      duration: STEP_MS,
-      onUpdate: (tw) => { if (tw.progress > 0.55) setCharacterFrame(this.sprite, dir, 0); },
+      duration: running ? STEP_MS * 0.55 : STEP_MS,
+      onUpdate: (tw) => {
+        if (tw.progress > 0.55) setCharacterFrame(this.sprite, dir, 0);
+        this.shadow.setPosition(this.sprite.x, this.sprite.y + 13);
+      },
       onComplete: () => {
         this.moving = false;
+        this.sprite.setDepth(depthFor(ny, 0.5));
+        this.shadow.setDepth(depthFor(ny, 0.1));
+        this.world.updateGrassOverlay(this.tile, this.sprite.depth, true);
         this.onStep?.(this.tile);
       },
     });

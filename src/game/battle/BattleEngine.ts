@@ -1,7 +1,7 @@
 import { STRUGGLE, getMove, type MoveData, type Stat, type StatusCondition } from "../data/moves";
 import { getItem } from "../data/items";
 import { getSpecies } from "../data/species";
-import { effectiveness } from "../data/types";
+import { categoryOf, effectiveness } from "../data/types";
 import { applyItem } from "../core/GameSession";
 import {
   calcStats, displayName, expForLevel, gainExp, levelEvolution, maxHp, slot, type PokemonInstance,
@@ -57,9 +57,19 @@ export interface BattleSetup {
   rng?: RandomService;
 }
 
-interface Battler { mon: PokemonInstance; stages: Stages; flinched: boolean; fainted: boolean }
+interface Battler {
+  mon: PokemonInstance; stages: Stages; flinched: boolean; fainted: boolean;
+  confused: number; seeded: boolean; protecting: boolean; focus: boolean; turns: number;
+}
+interface SideState { reflect: number; lightscreen: number }
 
 const STAT_NAME: Record<Stat, string> = { atk: "Tấn công", def: "Phòng thủ", spa: "Tấn công Đ.biệt", spd: "Phòng thủ Đ.biệt", spe: "Tốc độ", acc: "Độ chính xác", eva: "Né tránh" };
+
+/** Flail / Reversal power from remaining HP (Gen 3 table). */
+function lowHpPower(mon: PokemonInstance) {
+  const p = Math.floor((48 * mon.hp) / maxHp(mon));
+  return p <= 1 ? 200 : p <= 4 ? 150 : p <= 9 ? 100 : p <= 16 ? 80 : p <= 32 ? 40 : 20;
+}
 
 export function viewOf(mon: PokemonInstance): MonView {
   const growth = getSpecies(mon.speciesId).growth;
@@ -126,6 +136,7 @@ export class BattleEngine {
     const ev: BattleEvent[] = [];
     this.moved.clear();
     this.p.flinched = this.f.flinched = false;
+    this.p.protecting = this.f.protecting = false;
     const foeMove = chooseMove(this.rng, this.f.mon, this.f.stages, this.p.mon, this.isTrainer);
 
     if (action.type === "run") {
@@ -204,7 +215,10 @@ export class BattleEngine {
   /* Internals                                                    */
   /* ------------------------------------------------------------ */
 
-  private battler(mon: PokemonInstance): Battler { return { mon, stages: freshStages(), flinched: false, fainted: mon.hp <= 0 }; }
+  private battler(mon: PokemonInstance): Battler {
+    return { mon, stages: freshStages(), flinched: false, fainted: mon.hp <= 0, confused: 0, seeded: false, protecting: false, focus: false, turns: 0 };
+  }
+  private sides: Record<Side, SideState> = { player: { reflect: 0, lightscreen: 0 }, foe: { reflect: 0, lightscreen: 0 } };
   private side(s: Side) { return s === "player" ? this.p : this.f; }
   private other(s: Side): Side { return s === "player" ? "foe" : "player"; }
   private label(s: Side) {
@@ -233,7 +247,7 @@ export class BattleEngine {
   }
 
   private useMove(side: Side, index: number, ev: BattleEvent[]) {
-    const user = this.side(side), target = this.side(this.other(side));
+    const user = this.side(side), foeSide = this.other(side), target = this.side(foeSide);
     if (user.fainted || target.fainted || this.phase === "over") return;
     const name = this.label(side);
     this.moved.add(side);
@@ -248,7 +262,27 @@ export class BattleEngine {
       user.mon.status = null;
       ev.push({ kind: "text", text: `${name} đã tỉnh dậy!` }, { kind: "status", side, status: null });
     }
+    if (user.mon.status === "frz") {
+      if (!this.rng.chance(0.2)) { ev.push({ kind: "text", text: `${name} bị đóng băng cứng!` }); return; }
+      user.mon.status = null;
+      ev.push({ kind: "text", text: `${name} đã tan băng!` }, { kind: "status", side, status: null });
+    }
     if (user.flinched) { ev.push({ kind: "text", text: `${name} chùn bước, không thể ra đòn!` }); return; }
+    if (user.confused > 0) {
+      user.confused--;
+      if (user.confused === 0) ev.push({ kind: "text", text: `${name} đã hết rối loạn!` });
+      else {
+        ev.push({ kind: "text", text: `${name} đang rối loạn!` });
+        if (this.rng.chance(0.5)) {
+          const st = calcStats(user.mon);
+          const dmg = Math.max(1, Math.floor(Math.floor((Math.floor((2 * user.mon.level) / 5) + 2) * 40 * st.atk / st.def) / 50) + 2);
+          ev.push({ kind: "text", text: "Nó tự tấn công chính mình trong lúc rối loạn!" }, { kind: "hit", side, eff: 1 });
+          this.setHp(side, user.mon.hp - dmg, ev);
+          this.checkFaint(side, ev);
+          return;
+        }
+      }
+    }
     if (user.mon.status === "par" && this.rng.chance(0.25)) {
       ev.push({ kind: "text", text: `${name} bị tê liệt, không thể cử động!` });
       return;
@@ -259,49 +293,99 @@ export class BattleEngine {
     if (slotRef) slotRef.pp = Math.max(0, slotRef.pp - 1);
     if (!slotRef) ev.push({ kind: "text", text: `${name} đã hết chiêu!` });
     ev.push({ kind: "text", text: `${name} dùng ${move.name}!` });
+    const firstTurn = user.turns === 0;
+    user.turns++;
 
-    const selfOnly = move.power === 0 && !move.status && (move.stats?.every((s) => s.target === "self") ?? true);
-    // Accuracy
-    if (move.accuracy !== null && !selfOnly) {
-      const acc = move.accuracy * accuracyMultiplier(user.stages.acc - target.stages.eva);
+    const selfOnly = move.power === 0 && !move.status && !move.confuse && !move.leechSeed && !move.flee
+      && (move.stats?.every((s) => s.target === "self") ?? true);
+    if (!selfOnly && target.protecting) { ev.push({ kind: "text", text: `${this.label(foeSide)} đã tự bảo vệ!` }); return; }
+    if (move.firstTurn && !firstTurn) { ev.push({ kind: "text", text: "Nhưng thất bại!" }); return; }
+    if (move.requiresSleep && target.mon.status !== "slp") { ev.push({ kind: "text", text: `${this.label(foeSide)} không bị ảnh hưởng!` }); return; }
+
+    // Accuracy (OHKO moves: 30% + level difference)
+    if (move.ohko && user.mon.level < target.mon.level) { ev.push({ kind: "text", text: "Nhưng thất bại!" }); return; }
+    const baseAcc = move.ohko ? 30 + (user.mon.level - target.mon.level) : move.accuracy;
+    if (baseAcc !== null && !selfOnly) {
+      const acc = move.ohko ? baseAcc : baseAcc * accuracyMultiplier(user.stages.acc - target.stages.eva);
       if (this.rng.float() * 100 >= acc) { ev.push({ kind: "text", text: "Nhưng đòn đánh đã trượt!" }); return; }
     }
 
     ev.push({ kind: "move", side, move });
 
-    if (move.power === 0) { this.statusMove(side, move, ev); return; }
+    const damaging = move.power > 0 || move.fixedDamage !== undefined || move.ohko;
+    if (!damaging) { this.statusMove(side, move, ev); return; }
 
-    const res = calcDamage(this.rng, move, user.mon, user.stages, target.mon, target.stages);
-    const targetName = this.label(this.other(side));
-    if (res.eff === 0) { ev.push({ kind: "text", text: `Không có tác dụng với ${targetName}…` }); return; }
-    const dealt = Math.min(target.mon.hp, res.damage);
-    ev.push({ kind: "hit", side: this.other(side), eff: res.eff });
-    this.setHp(this.other(side), target.mon.hp - dealt, ev);
-    if (res.crit) ev.push({ kind: "text", text: "Đòn chí mạng!" });
-    if (res.eff > 1) ev.push({ kind: "text", text: "Hiệu quả cực tốt!" });
-    else if (res.eff < 1) ev.push({ kind: "text", text: "Không hiệu quả lắm…" });
+    const targetName = this.label(foeSide);
+    const types = getSpecies(target.mon.speciesId).types;
+    const eff = move.id === "struggle" ? 1 : effectiveness(move.type, types);
+    if (eff === 0) { ev.push({ kind: "text", text: `Không có tác dụng với ${targetName}…` }); return; }
 
-    if (move.drain && dealt > 0 && user.mon.hp < maxHp(user.mon)) {
-      this.setHp(side, user.mon.hp + Math.max(1, Math.floor(dealt * move.drain)), ev);
+    let dealtTotal = 0, crit = false, hits = 0;
+    const totalHits = move.multiHit ? this.rollHits(move.multiHit) : 1;
+    for (let h = 0; h < totalHits && !target.fainted; h++) {
+      let dmg: number;
+      if (move.ohko) dmg = target.mon.hp;
+      else if (move.fixedDamage === "level") dmg = user.mon.level;
+      else if (move.fixedDamage === "half") dmg = Math.max(1, Math.floor(target.mon.hp / 2));
+      else if (typeof move.fixedDamage === "number") dmg = move.fixedDamage;
+      else {
+        const physical = categoryOf(move.type) === "physical";
+        const screen = physical ? this.sides[foeSide].reflect > 0 : this.sides[foeSide].lightscreen > 0;
+        const res = calcDamage(this.rng, move, user.mon, user.stages, target.mon, target.stages, {
+          critStage: user.focus ? 2 : 0, screen, power: move.lowHpPower ? lowHpPower(user.mon) : undefined,
+        });
+        dmg = res.damage;
+        crit ||= res.crit;
+      }
+      const dealt = Math.min(target.mon.hp, dmg);
+      dealtTotal += dealt;
+      hits++;
+      ev.push({ kind: "hit", side: foeSide, eff });
+      this.setHp(foeSide, target.mon.hp - dealt, ev);
+      if (target.mon.hp <= 0) break;
+    }
+    if (move.multiHit) ev.push({ kind: "text", text: `Trúng ${hits} lần!` });
+    if (move.ohko) ev.push({ kind: "text", text: "Đòn hạ gục một chiêu!" });
+    if (crit) ev.push({ kind: "text", text: "Đòn chí mạng!" });
+    if (!move.fixedDamage && !move.ohko) {
+      if (eff > 1) ev.push({ kind: "text", text: "Hiệu quả cực tốt!" });
+      else if (eff < 1) ev.push({ kind: "text", text: "Không hiệu quả lắm…" });
+    }
+    if (target.mon.status === "frz" && move.type === "Fire" && target.mon.hp > 0) {
+      target.mon.status = null;
+      ev.push({ kind: "status", side: foeSide, status: null }, { kind: "text", text: `${targetName} đã tan băng!` });
+    }
+
+    if (move.drain && dealtTotal > 0 && user.mon.hp < maxHp(user.mon)) {
+      this.setHp(side, user.mon.hp + Math.max(1, Math.floor(dealtTotal * move.drain)), ev);
       ev.push({ kind: "text", text: `${targetName} bị hút mất năng lượng!` });
     }
-    if (move.recoil && dealt > 0) {
-      this.setHp(side, user.mon.hp - Math.max(1, Math.floor(dealt * move.recoil)), ev);
+    if (move.recoil && dealtTotal > 0) {
+      this.setHp(side, user.mon.hp - Math.max(1, Math.floor(dealtTotal * move.recoil)), ev);
       ev.push({ kind: "text", text: `${name} bị phản đòn!` });
     }
-    this.checkFaint(this.other(side), ev);
+    if (move.selfDestruct) this.setHp(side, 0, ev);
+    this.checkFaint(foeSide, ev);
     this.checkFaint(side, ev);
-    if (target.fainted) return;
+    if (target.fainted || user.fainted) return;
 
     // Secondary effects
     const chance = (move.chance ?? 100) / 100;
-    if (move.status && this.rng.chance(chance)) this.inflict(this.other(side), move.status, ev, false);
-    if (move.stats && this.rng.chance(chance)) for (const st of move.stats) this.changeStat(st.target === "self" ? side : this.other(side), st.stat, st.stages, ev);
-    if (move.flinch && !this.moved.has(this.other(side)) && this.rng.chance(move.flinch / 100)) target.flinched = true;
+    if (move.status && this.rng.chance(chance)) this.inflict(foeSide, move.status, ev, false);
+    if (move.confuse && this.rng.chance(chance)) this.confuse(foeSide, ev, false);
+    if (move.stats && this.rng.chance(chance)) for (const st of move.stats) this.changeStat(st.target === "self" ? side : foeSide, st.stat, st.stages, ev);
+    if (move.flinch && !this.moved.has(foeSide) && this.rng.chance(move.flinch / 100)) target.flinched = true;
+  }
+
+  private rollHits([min, max]: [number, number]) {
+    if (min === max) return min;
+    // Gen 3 distribution for 2–5 hit moves: 37.5 / 37.5 / 12.5 / 12.5 %
+    const r = this.rng.float();
+    return r < 0.375 ? 2 : r < 0.75 ? 3 : r < 0.875 ? 4 : 5;
   }
 
   private statusMove(side: Side, move: MoveData, ev: BattleEvent[]) {
-    const user = this.side(side), foeSide = this.other(side);
+    const user = this.side(side), foeSide = this.other(side), target = this.side(foeSide);
     if (move.rest) {
       if (user.mon.hp >= maxHp(user.mon)) { ev.push({ kind: "text", text: "Nhưng thất bại!" }); return; }
       user.mon.status = "slp"; user.mon.sleepTurns = 2;
@@ -309,31 +393,84 @@ export class BattleEngine {
       this.setHp(side, maxHp(user.mon), ev);
       return;
     }
-    if (move.status) {
-      if (effectiveness(move.type, getSpecies(this.side(foeSide).mon.speciesId).types) === 0) {
+    if (move.heal) {
+      if (user.mon.hp >= maxHp(user.mon)) { ev.push({ kind: "text", text: "HP đã đầy rồi!" }); return; }
+      this.setHp(side, user.mon.hp + Math.floor(maxHp(user.mon) * move.heal), ev);
+      ev.push({ kind: "text", text: `${this.label(side)} đã hồi phục HP!` });
+      return;
+    }
+    if (move.flee) {
+      if (this.isTrainer) { ev.push({ kind: "text", text: "Nhưng thất bại!" }); return; }
+      ev.push({ kind: "text", text: side === "player" ? "Bạn đã rời khỏi trận đấu!" : `${this.label(side)} đã bỏ chạy!` });
+      this.finish(ev, "run");
+      return;
+    }
+    if (move.protect) {
+      if (this.moved.has(foeSide)) { ev.push({ kind: "text", text: "Nhưng thất bại!" }); return; }
+      user.protecting = true;
+      ev.push({ kind: "text", text: `${this.label(side)} vào thế phòng thủ!` });
+      return;
+    }
+    if (move.screen) {
+      const s = this.sides[side];
+      if (s[move.screen] > 0) { ev.push({ kind: "text", text: "Nhưng thất bại!" }); return; }
+      s[move.screen] = 5;
+      ev.push({ kind: "stat", side, up: true }, { kind: "text", text: move.screen === "reflect" ? "Reflect giúp giảm sát thương vật lý!" : "Light Screen giúp giảm sát thương đặc biệt!" });
+      return;
+    }
+    if (move.haze) {
+      this.p.stages = freshStages(); this.f.stages = freshStages();
+      ev.push({ kind: "text", text: "Mọi thay đổi chỉ số đã bị xóa!" });
+      return;
+    }
+    if (move.focus) {
+      if (user.focus) { ev.push({ kind: "text", text: "Nhưng thất bại!" }); return; }
+      user.focus = true;
+      ev.push({ kind: "text", text: `${this.label(side)} đang tập trung cao độ!` });
+      return;
+    }
+    if (move.leechSeed) {
+      if (target.seeded || getSpecies(target.mon.speciesId).types.includes("Grass")) { ev.push({ kind: "text", text: `${this.label(foeSide)} không bị ảnh hưởng!` }); return; }
+      target.seeded = true;
+      ev.push({ kind: "text", text: `${this.label(foeSide)} bị gieo hạt!` });
+      return;
+    }
+    if (move.status || move.confuse) {
+      if (move.status && effectiveness(move.type, getSpecies(target.mon.speciesId).types) === 0 && move.type === "Electric") {
         ev.push({ kind: "text", text: `Không có tác dụng với ${this.label(foeSide)}…` });
         return;
       }
-      this.inflict(foeSide, move.status, ev, true);
+      if (move.status) this.inflict(foeSide, move.status, ev, true);
+      if (move.confuse) this.confuse(foeSide, ev, !move.status);
+      if (move.stats) for (const st of move.stats) this.changeStat(st.target === "self" ? side : foeSide, st.stat, st.stages, ev);
       return;
     }
     if (move.stats) {
       for (const st of move.stats) this.changeStat(st.target === "self" ? side : foeSide, st.stat, st.stages, ev);
       return;
     }
+    if (move.splash) { ev.push({ kind: "text", text: "Nhưng không có gì xảy ra!" }); return; }
     ev.push({ kind: "text", text: "Nhưng không có gì xảy ra!" });
+  }
+
+  private confuse(s: Side, ev: BattleEvent[], announceFail: boolean) {
+    const b = this.side(s);
+    if (b.confused > 0 || b.fainted) { if (announceFail) ev.push({ kind: "text", text: `${this.label(s)} đã rối loạn sẵn rồi!` }); return; }
+    b.confused = this.rng.int(2, 5);
+    ev.push({ kind: "stat", side: s, up: false }, { kind: "text", text: `${this.label(s)} bị rối loạn!` });
   }
 
   private inflict(s: Side, status: StatusCondition, ev: BattleEvent[], announceFail: boolean) {
     const b = this.side(s), types = getSpecies(b.mon.speciesId).types;
-    const immune = (status === "brn" && types.includes("Fire")) || (status === "psn" && (types.includes("Poison") || types.includes("Steel")));
+    const immune = (status === "brn" && types.includes("Fire")) || (status === "frz" && types.includes("Ice"))
+      || (status === "psn" && (types.includes("Poison") || types.includes("Steel")));
     if (b.mon.status || immune || b.fainted) {
       if (announceFail) ev.push({ kind: "text", text: b.mon.status ? `${this.label(s)} đã có trạng thái rồi!` : "Nhưng thất bại!" });
       return;
     }
     b.mon.status = status;
     if (status === "slp") b.mon.sleepTurns = this.rng.int(1, 3);
-    const text = { brn: "bị bỏng!", psn: "bị trúng độc!", par: "bị tê liệt! Có thể không cử động được!", slp: "đã ngủ thiếp đi!" }[status];
+    const text = { brn: "bị bỏng!", psn: "bị trúng độc!", par: "bị tê liệt! Có thể không cử động được!", slp: "đã ngủ thiếp đi!", frz: "bị đóng băng!" }[status];
     ev.push({ kind: "status", side: s, status }, { kind: "text", text: `${this.label(s)} ${text}` });
   }
 
@@ -358,6 +495,20 @@ export class BattleEngine {
         ev.push({ kind: "hit", side: s, eff: 1 });
         this.setHp(s, b.mon.hp - dmg, ev);
         this.checkFaint(s, ev);
+      }
+      const other = this.side(this.other(s));
+      if (b.seeded && !b.fainted && !other.fainted) {
+        const dmg = Math.min(b.mon.hp, Math.max(1, Math.floor(maxHp(b.mon) / 8)));
+        ev.push({ kind: "text", text: `Hạt giống hút HP của ${this.label(s)}!` }, { kind: "hit", side: s, eff: 1 });
+        this.setHp(s, b.mon.hp - dmg, ev);
+        if (other.mon.hp < maxHp(other.mon)) this.setHp(this.other(s), other.mon.hp + dmg, ev);
+        this.checkFaint(s, ev);
+      }
+    }
+    for (const s of ["player", "foe"] as Side[]) {
+      const st = this.sides[s];
+      for (const k of ["reflect", "lightscreen"] as const) {
+        if (st[k] > 0 && --st[k] === 0) ev.push({ kind: "text", text: `${k === "reflect" ? "Reflect" : "Light Screen"} ${s === "player" ? "của bạn" : "của đối thủ"} đã hết tác dụng.` });
       }
     }
   }

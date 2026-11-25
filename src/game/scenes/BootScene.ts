@@ -15,6 +15,9 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     ensurePlaceholders(this);
-    this.scene.start("OverworldScene");
+    // Pixel font must be ready before any Phaser text is rasterised.
+    const go = () => this.scene.start("OverworldScene");
+    if (document.fonts?.load) Promise.race([document.fonts.load('26px "VT323"'), new Promise((r) => setTimeout(r, 1500))]).then(go, go);
+    else go();
   }
 }
