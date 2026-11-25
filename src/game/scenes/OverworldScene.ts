@@ -12,6 +12,8 @@ import type { BattleSetup } from "../battle/BattleEngine";
 import type { BattleResult, BattleSceneData } from "./BattleScene";
 import { isUiOpen, useGameStore } from "../../state/gameStore";
 import { questFor } from "../core/objectives";
+import { sideQuestFor } from "../core/sideQuests";
+import type { QuestTarget } from "../core/objectives";
 
 const opposite: Record<Direction, Direction> = { up: "down", down: "up", left: "right", right: "left" };
 
@@ -62,7 +64,8 @@ export class OverworldScene extends Phaser.Scene {
     const offSession = session.on(() => this.onSessionChange());
     window.addEventListener("game:start", this.onStart);
     window.addEventListener("game:quest-navigate", this.onQuestNavigate);
-    const cleanup = () => { window.removeEventListener("game:start", this.onStart); window.removeEventListener("game:quest-navigate", this.onQuestNavigate); offSession(); };
+    window.addEventListener("game:sidequest-navigate", this.onSideQuestNavigate);
+    const cleanup = () => { window.removeEventListener("game:start", this.onStart); window.removeEventListener("game:quest-navigate", this.onQuestNavigate); window.removeEventListener("game:sidequest-navigate", this.onSideQuestNavigate); offSession(); };
     this.events.once("shutdown", cleanup);
     this.events.once("destroy", cleanup);
     if ((window as unknown as { __ppaStarted?: boolean }).__ppaStarted) this.onStart();
@@ -108,13 +111,24 @@ export class OverworldScene extends Phaser.Scene {
 
   private onQuestNavigate = () => {
     if (!this.started || this.inBattle || this.dialog.isOpen || this.cutscene) return;
-    const quest = questFor(this.save);
-    this.autoNpcId = quest.target.npcId;
-    this.autoQuestLabel = quest.target.label;
-    this.autoQuestArrival = quest.target.arrival;
+    this.navigateToTarget(questFor(this.save).target);
+  };
+
+  private onSideQuestNavigate = (event: Event) => {
+    if (!this.started || this.inBattle || this.dialog.isOpen || this.cutscene) return;
+    const id = (event as CustomEvent<{ id: string }>).detail?.id;
+    const quest = id ? sideQuestFor(this.save, id) : undefined;
+    if (!quest) { useGameStore.getState().notify("Không tìm thấy nhiệm vụ phụ."); return; }
+    this.navigateToTarget(quest.target);
+  };
+
+  private navigateToTarget(targetDef: QuestTarget) {
+    this.autoNpcId = targetDef.npcId;
+    this.autoQuestLabel = targetDef.label;
+    this.autoQuestArrival = targetDef.arrival;
     const npc = this.autoNpcId ? this.world.npcs.find((n) => n.def.id === this.autoNpcId) : undefined;
-    const target = npc ? { x: npc.x, y: npc.y } : quest.target.tile;
-    if (!target) return;
+    const target = npc ? { x: npc.x, y: npc.y } : targetDef.tile;
+    if (!target) { useGameStore.getState().notify("Mục tiêu chưa được đặt trên bản đồ."); return; }
     const goals: Point[] = npc
       ? [{ x: target.x, y: target.y - 1 }, { x: target.x + 1, y: target.y }, { x: target.x, y: target.y + 1 }, { x: target.x - 1, y: target.y }]
       : [target];
@@ -227,6 +241,11 @@ export class OverworldScene extends Phaser.Scene {
   private onStep(t: Point) {
     this.save.steps++;
     this.save.position = { ...t };
+    if (!session.hasFlag("area:greenleaf:moon-grove") && t.y >= 34 && t.x >= 5 && t.x <= 21) {
+      session.setFlag("area:greenleaf:moon-grove");
+      session.changed();
+      useGameStore.getState().notify("Khu vực mới phát hiện: MOONLIT GROVE");
+    }
 
     const exit = this.world.exitAt(t.x, t.y);
     if (exit) {
