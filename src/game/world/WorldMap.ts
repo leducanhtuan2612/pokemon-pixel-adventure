@@ -208,21 +208,21 @@ export class WorldMap {
 
   private buildGround() {
     const cells: string[][][] = this.def.layout.map((row, y) => [...row].map((_, x) => this.descriptorsAt(x, y)));
-    const unique = [...new Set(cells.flat(2))];
-    const atlasKey = `atlas-${this.def.id}`;
+    const unique = [...new Set(cells.flat(2))], atlasKey = `atlas-${this.def.id}`;
     const index = buildAtlas(this.scene, atlasKey, unique);
-    const data = cells.map((row) => row.map((d) => index.get(d[0])!));
-    cells.forEach((row, y) => row.forEach((d, x) => { if (d.length > 1) this.animated.push({ x, y, frames: d.map((k) => index.get(k)!) }); }));
-    this.tilemap = this.scene.make.tilemap({ data, tileWidth: T, tileHeight: T });
-    const tileset = this.tilemap.addTilesetImage(atlasKey, atlasKey, T, T, 0, 0)!;
-    this.layer = this.tilemap.createLayer(0, tileset, 0, 0)!.setDepth(0);
+    cells.forEach((row, y) => row.forEach((descriptors, x) => {
+      const p = this.project(x, y), frame = index.get(descriptors[0])!;
+      const tile = this.scene.add.image(p.x, p.y, atlasKey, String(frame)).setDepth(-2);
+      this.groundSprites.push(tile);
+      if (descriptors.length > 1) this.animated.push({ sprite: tile, frames: descriptors.map((d) => index.get(d)!) });
+    }));
   }
 
   private animate() {
     this.animTick++;
     for (const c of this.animated) {
       const f = c.frames.length === 2 ? Math.floor(this.animTick / 2) % 2 : this.animTick % c.frames.length;
-      this.layer?.putTileAt(c.frames[f], c.x, c.y);
+      c.sprite.setFrame(String(f));
     }
   }
 
@@ -233,7 +233,8 @@ export class WorldMap {
       const ch = this.charAt(x, y);
       const seed = Math.abs((x * 31 + y * 17) % 13);
       if (!(ch === "*" || ch === "M" || ch === ":") || seed > 2 || count >= 28) continue;
-      const mote = this.scene.add.image(x * T + 7 + seed * 5, y * T + 7 + (seed % 2) * 9, PROP.firefly)
+      const p = this.project(x, y);
+      const mote = this.scene.add.image(p.x + (seed - 6) * 2, p.y - 5 + (seed % 2) * 5, PROP.firefly)
         .setBlendMode(Phaser.BlendModes.ADD).setScale(0.45 + seed * 0.12).setAlpha(0.25).setDepth(2 + (seed % 2) * 0.1);
       this.scene.tweens.add({ targets: mote, y: mote.y - 4 - seed, alpha: 0.85, scale: mote.scale * 1.45, duration: 850 + seed * 170, yoyo: true, repeat: -1, delay: seed * 120 });
       count++;
