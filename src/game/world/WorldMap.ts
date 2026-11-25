@@ -77,16 +77,18 @@ export class WorldMap {
     for (const b of this.def.buildings) {
       const tex = ensureBuildingTexture(this.scene, b);
       const windmill = b.style === "windmill";
-      const depth = depthFor(b.y + b.h - 1, 0.7);
-      this.scene.add.image(b.x * T, b.y * T - (windmill ? WINDMILL_OVERHANG : BUILDING_OVERHANG), tex).setOrigin(0, 0).setDepth(depth);
+      const footprint = this.project(b.x + b.w - 1, b.y + b.h - 1);
+      const width = (b.w + b.h) * ISO_TILE_W / 2;
+      const depth = depthFor(b.x + b.y + b.w + b.h - 2, 0.7);
+      this.scene.add.image(footprint.x, footprint.y - (windmill ? WINDMILL_OVERHANG : BUILDING_OVERHANG)).setTexture(tex).setDisplaySize(width, b.h * T + BUILDING_OVERHANG).setOrigin(0.5, 1).setDepth(depth);
       if (windmill) {
-        const blades = this.scene.add.image(b.x * T + (b.w * T) / 2, b.y * T - WINDMILL_OVERHANG + 60, PROP.blades).setDepth(depth + 0.01);
+        const blades = this.scene.add.image(footprint.x, footprint.y - WINDMILL_OVERHANG + 25, PROP.blades).setDepth(depth + 0.01);
         this.scene.tweens.add({ targets: blades, angle: 360, duration: 9000, repeat: -1 });
       }
     }
     for (const it of this.def.items ?? []) {
       if (it.hidden || this.picked.has(it.id)) continue;
-      this.itemSprites.set(it.id, this.scene.add.image(it.x * T, it.y * T, PROP.itemBall).setOrigin(0, 0).setDepth(depthFor(it.y, 0.2)));
+      const p = this.project(it.x, it.y);\n      this.itemSprites.set(it.id, this.scene.add.image(p.x, p.y - 3, PROP.itemBall).setOrigin(0.5, 0.5).setDepth(depthFor(it.x + it.y, 0.2)));
     }
     for (const def of this.def.npcs) this.spawnNpc(def, defeated.includes(def.id));
     this.grassFront = this.scene.add.image(0, 0, PROP.grassFront).setOrigin(0, 0).setVisible(false);
@@ -114,7 +116,7 @@ export class WorldMap {
     const p = this.project(to.x, to.y), x = p.x, y = p.y;
     this.scene.tweens.add({ targets: n.sprite, x, y, duration: 300 });
     this.scene.tweens.add({ targets: n.shadow, x, y: y + 13, duration: 300 });
-    n.sprite.setDepth(depthFor(to.y, 0.5));
+    n.sprite.setDepth(depthFor(to.x + to.y, 0.5));
   }
 
   faceNpc(n: NpcRuntime, dir: Direction) {
@@ -132,7 +134,7 @@ export class WorldMap {
     n.x = nx; n.y = ny;
     const critter = n.def.role === "critter";
     if (!critter) setCharacterFrame(n.sprite, dir, Math.random() < 0.5 ? 1 : 2);
-    if (dy(v) > 0 || v.x !== 0) n.sprite.setDepth(depthFor(ny, 0.5));
+    if (dy(v) > 0 || v.x !== 0) n.sprite.setDepth(depthFor(nx + ny, 0.5));
     return new Promise((res) => {
       this.scene.tweens.add({
         targets: n.sprite, x: this.project(nx, ny).x, y: this.project(nx, ny).y - (critter ? 4 : 0), duration: ms,
