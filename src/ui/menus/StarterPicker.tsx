@@ -7,9 +7,9 @@ import { useMenuNav } from "./useMenuNav";
 
 const STARTERS = ["bulbasaur", "charmander", "squirtle"];
 const BLURB: Record<string, string> = {
-  bulbasaur: "Hệ Cỏ/Độc. Bền bỉ, có chiêu gây ngủ và độc. Dễ chơi nhất ở đầu game.",
-  charmander: "Hệ Lửa. Tấn công nhanh và mạnh, nhưng gặp khó khăn với Pokémon hệ Đá.",
-  squirtle: "Hệ Nước. Phòng thủ cao, khắc chế tốt Pokémon hệ Đá và Lửa.",
+  bulbasaur: "Hệ Cỏ/Độc. Bền bỉ, giỏi khống chế và làm suy yếu đối thủ.",
+  charmander: "Hệ Lửa. Tốc độ cao, dồn sát thương mạnh nhưng cần cẩn trọng trước hệ Đá.",
+  squirtle: "Hệ Nước. Bền bỉ, phòng thủ tốt và khắc chế các đối thủ hệ Đá, Lửa.",
 };
 
 export function StarterPicker() {
@@ -17,7 +17,7 @@ export function StarterPicker() {
   const [confirm, setConfirm] = useState<string | null>(null);
   const [index, setIndex] = useMenuNav(3, (i) => setConfirm(STARTERS[i]), () => {}, 3, confirm === null);
   return <div className="px-fullscreen px-starter">
-    <div className="px-starter-title">Chọn Pokémon đầu tiên của bạn!</div>
+    <div className="px-starter-title">Chọn người bạn đồng hành đầu tiên!</div>
     <div className="px-starter-row">
       {STARTERS.map((id, i) => {
         const sp = getSpecies(id);
