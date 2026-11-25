@@ -7,8 +7,6 @@ import { PokedexPanel } from "./PokedexPanel";
 import { StartMenu } from "./StartMenu";
 import { StarterPicker } from "./StarterPicker";
 import { RedeemPanel, MoveLabPanel } from "./QARewardsPanel";
-import { RedeemPanel } from "./RedeemPanel";
-import { MoveLabPanel } from "./MoveLabPanel";
 
 /** React overlay on top of the Phaser canvas for all management screens. */
 export function MenuLayer() {
@@ -28,8 +26,6 @@ export function MenuLayer() {
     {panel === "dex" && <PokedexPanel />}
     {panel === "mart" && <MartPanel />}
     {panel === "starter" && <StarterPicker />}
-    {panel === "redeem" && <RedeemPanel />}
-    {panel === "moveLab" && <MoveLabPanel />}
     {panel === "redeem" && <RedeemPanel />}
     {panel === "moveLab" && <MoveLabPanel />}
     {notice && <div className="px-notice">{notice}</div>}
