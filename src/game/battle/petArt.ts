@@ -5,7 +5,6 @@ type SpriteView = "front" | "back";
 type Point = readonly [number, number];
 
 const INK = "#26333a";
-const SUFFIXES = ["ling", "kin", "puff", "let", "wing", "mote", "bud", "fang", "shell", "bloom", "whisk", "scale", "crest", "glow", "tail", "sprout", "paw", "flit"] as const;
 
 function tint(hex: string, amount: number) {
   const n = Number.parseInt(hex.slice(1), 16);
@@ -117,6 +116,7 @@ export function createPetSpriteCanvas(speciesId: string, view: SpriteView = "fro
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
   ctx.imageSmoothingEnabled = false;
+  ctx.save();
   ctx.scale(2, 2);
   ctx.lineJoin = "miter";
   ctx.lineCap = "square";
