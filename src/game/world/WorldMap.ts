@@ -80,7 +80,7 @@ export class WorldMap {
       const footprint = this.project(b.x + b.w - 1, b.y + b.h - 1);
       const width = (b.w + b.h) * ISO_TILE_W / 2;
       const depth = depthFor(b.x + b.y + b.w + b.h - 2, 0.7);
-      this.scene.add.image(footprint.x, footprint.y - (windmill ? WINDMILL_OVERHANG : BUILDING_OVERHANG)).setTexture(tex).setDisplaySize(width, b.h * T + BUILDING_OVERHANG).setOrigin(0.5, 1).setDepth(depth);
+      this.scene.add.image(footprint.x, footprint.y - (windmill ? WINDMILL_OVERHANG : BUILDING_OVERHANG), tex).setDisplaySize(width, b.h * T + BUILDING_OVERHANG).setOrigin(0.5, 1).setDepth(depth);
       if (windmill) {
         const blades = this.scene.add.image(footprint.x, footprint.y - WINDMILL_OVERHANG + 25, PROP.blades).setDepth(depth + 0.01);
         this.scene.tweens.add({ targets: blades, angle: 360, duration: 9000, repeat: -1 });
