@@ -37,6 +37,7 @@ export class OverworldScene extends Phaser.Scene {
   private routeGraphics?: Phaser.GameObjects.Graphics;
   private routeDestination?: Point;
   private manualRoute = false;
+  private hoverGraphics?: Phaser.GameObjects.Graphics;
 
 
   constructor() { super("OverworldScene"); }
@@ -63,8 +64,11 @@ export class OverworldScene extends Phaser.Scene {
     cam.setDeadzone(140, 88);
 
     this.routeGraphics = this.add.graphics().setDepth(900).setScrollFactor(1);
+    this.hoverGraphics = this.add.graphics().setDepth(899).setScrollFactor(1);
     this.input.on("pointerdown", this.onWorldPointer);
-    this.events.once("shutdown", () => { this.input.off("pointerdown", this.onWorldPointer); this.routeGraphics?.destroy(); });
+    this.input.on("pointermove", this.onWorldPointerMove);
+    this.input.on("wheel", this.onWorldWheel);
+    this.events.once("shutdown", () => { this.input.off("pointerdown", this.onWorldPointer); this.input.off("pointermove", this.onWorldPointerMove); this.input.off("wheel", this.onWorldWheel); this.routeGraphics?.destroy(); this.hoverGraphics?.destroy(); });
 
     const kb = this.input.keyboard!;
     for (const k of ["ENTER", "SPACE", "Z"]) kb.on(`keydown-${k}`, () => this.onConfirm());
@@ -131,6 +135,23 @@ export class OverworldScene extends Phaser.Scene {
     const quest = id ? sideQuestFor(this.save, id) : undefined;
     if (!quest) { useGameStore.getState().notify("Không tìm thấy nhiệm vụ phụ."); return; }
     this.navigateToTarget(quest.target);
+  };
+
+  /** Hover feedback outlines the exact logical tile under the cursor. */
+  private onWorldPointerMove = (pointer: Phaser.Input.Pointer) => {
+    const g=this.hoverGraphics;
+    if(!g || !this.started || isUiOpen() || this.dialog.isOpen) { g?.clear(); return; }
+    const q=this.cameras.main.getWorldPoint(pointer.x,pointer.y), tile=this.world.unproject(q.x,q.y);
+    if(tile.x<0||tile.y<0||tile.x>=this.world.width||tile.y>=this.world.height){g.clear();return;}
+    const p=this.world.project(tile.x,tile.y);
+    g.clear();g.lineStyle(2,0xeaffad,0.95);g.beginPath();g.moveTo(p.x,p.y-16);g.lineTo(p.x+32,p.y);g.lineTo(p.x,p.y+16);g.lineTo(p.x-32,p.y);g.closePath();g.strokePath();
+  };
+
+  /** Mouse wheel adjusts camera zoom without changing the pixel-art scale of source textures. */
+  private onWorldWheel = (_pointer: Phaser.Input.Pointer, _objects: Phaser.GameObjects.GameObject[], _dx: number, dy: number) => {
+    if(!this.started || isUiOpen()) return;
+    const cam=this.cameras.main;
+    cam.setZoom(Phaser.Math.Clamp(cam.zoom-dy*0.001,1,1.55));
   };
 
   /** Mouse/touch destination selection. Convert screen pointer through camera, then inverse-isometric pick. */
