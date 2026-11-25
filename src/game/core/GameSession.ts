@@ -2,6 +2,7 @@ import { START_MAP_ID } from "../data/maps";
 import { getItem } from "../data/items";
 import { MOVES, getMove, normalizeMoveId } from "../data/moves";
 import { getSpecies } from "../data/species";
+import { sideQuestFor } from "./sideQuests";
 import {
   createPokemon, displayName, evolve, expForLevel, healPokemon, itemEvolution, maxHp, slot, type PokemonInstance,
 } from "./pokemon";
@@ -124,6 +125,19 @@ export class GameSession {
     this.addPokemon(createPokemon(speciesId, 5));
     this.data.starterChosen = true;
     this.changed();
+  }
+
+  /** Claim a completed Greenleaf side quest once and persist the reward. */
+  claimSideQuest(id: string): { ok: boolean; message: string } {
+    const quest = sideQuestFor(this.data, id);
+    if (!quest) return { ok: false, message: "Không tìm thấy nhiệm vụ phụ." };
+    if (quest.claimed) return { ok: false, message: "Bạn đã nhận phần thưởng nhiệm vụ này rồi." };
+    if (!quest.completed) return { ok: false, message: "Nhiệm vụ chưa hoàn thành." };
+    this.addItem(quest.reward.item, quest.reward.qty);
+    this.data.money += quest.reward.money;
+    this.setFlag(`quest:claimed:${id}`);
+    this.changed();
+    return { ok: true, message: `Nhận thưởng ${getItem(quest.reward.item)?.name ?? quest.reward.item} ×${quest.reward.qty} và ₽${quest.reward.money.toLocaleString("vi-VN")}!` };
   }
 
   /** Redeem one-time Map 1 QA gifts; the test team is routed into party/PC safely. */
