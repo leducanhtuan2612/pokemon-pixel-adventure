@@ -17,7 +17,7 @@ function poly(c:CanvasRenderingContext2D,pts:number[][],fill:string,stroke=darke
 function oval(c:CanvasRenderingContext2D,x:number,y:number,rx:number,ry:number,fill:string,stroke=darken(fill),w=1){
   c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);c.fillStyle=fill;c.fill();if(stroke){c.strokeStyle=stroke;c.lineWidth=w;c.stroke();}
 }
-function pixel(c:CanvasRenderingContext2D,x:number,y,color:string,w=1,h=1){c.fillStyle=color;c.fillRect(Math.round(x),Math.round(y),w,h);}
+function pixel(c:CanvasRenderingContext2D,x:number,y:number,color:string,w=1,h=1){c.fillStyle=color;c.fillRect(Math.round(x),Math.round(y),w,h);}
 function crest(c:CanvasRenderingContext2D,element:Element,light:string){
   if(element==="Flame"){
     poly(c,[[12,10],[10,6],[13,7],[16,1],[18,8],[21,5],[20,11]],light,"#9c4937",1);
