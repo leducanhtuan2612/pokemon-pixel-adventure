@@ -339,6 +339,7 @@ export class OverworldScene extends Phaser.Scene {
       return;
     }
     if (def.role === "mart") { this.openDialog(def.dialog, () => useGameStore.getState().open("mart")); return; }
+    if (def.id === "oldman") { this.openDialog(def.dialog, () => useGameStore.getState().open("redeem")); return; }
     if (def.role === "villager") { this.openDialog(def.dialog); return; }
     if (def.role === "critter") { this.speaker = undefined; this.openDialog(def.dialog); return; }
     if (def.role === "guide") {
