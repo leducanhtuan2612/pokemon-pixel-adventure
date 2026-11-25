@@ -146,8 +146,8 @@ export class WorldMap {
         },
         onComplete: () => {
           n.moving = false;
-          n.sprite.setDepth(depthFor(ny, 0.5));
-          n.shadow.setDepth(depthFor(ny, 0.1));
+          n.sprite.setDepth(depthFor(nx + ny, 0.5));
+          n.shadow.setDepth(depthFor(nx + ny, 0.1));
           res(true);
         },
       });
