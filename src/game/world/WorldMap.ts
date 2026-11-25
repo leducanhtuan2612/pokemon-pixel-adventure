@@ -80,6 +80,7 @@ export class WorldMap {
     picked.forEach((id) => this.picked.add(id));
     this.buildGround();
     this.placeProps();
+    this.placeBreezeLeaves();
     this.placeFireflies();
     for (const b of this.def.buildings) {
       const tex = ensureBuildingTexture(this.scene, b);
@@ -277,6 +278,35 @@ export class WorldMap {
   }
 
   /** Ambient fireflies and motes make flower patches and the hidden grove feel alive. */
+  /** Drifting canopy leaves create gentle motion without changing collision tiles. */
+  private placeBreezeLeaves() {
+    let count = 0;
+    for (let y = 1; y < this.height - 1; y++) {
+      for (let x = 1; x < this.width - 1; x++) {
+        if (count >= 18) return;
+        const ch = this.charAt(x, y);
+        const seed = Math.abs((x * 43 + y * 29) % 17);
+        if ((ch !== "T" && ch !== "Y") || seed > 2) continue;
+        const p = this.project(x, y);
+        const leaf = this.scene.add.image(p.x + (seed - 1) * 7, p.y - 37 + seed * 2, PROP.leaf)
+          .setDepth(depthFor(y, 0.45)).setScale(0.7 + seed * 0.12).setAlpha(0.3 + seed * 0.12);
+        this.scene.tweens.add({
+          targets: leaf,
+          x: leaf.x + (seed % 2 ? 14 : -16),
+          y: leaf.y + 18 + seed,
+          angle: leaf.angle + (seed % 2 ? 120 : -120),
+          alpha: 0.12,
+          duration: 2600 + seed * 260,
+          yoyo: true,
+          repeat: -1,
+          delay: seed * 140,
+          ease: "Sine.easeInOut",
+        });
+        count++;
+      }
+    }
+  }
+
   private placeFireflies() {
     let count = 0;
     for (let y = 2; y < this.height - 1; y++) for (let x = 2; x < this.width - 1; x++) {
