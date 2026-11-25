@@ -64,12 +64,40 @@ const OVERRIDES: Record<string, Partial<Species>> = {
   snorlax: { catchRate: 25, baseExp: 154, rarity: "legendary", dexEntry: "Chỉ ăn và ngủ. Mỗi ngày ăn hết 400 kg thức ăn." },
 };
 
+const PET_NAME_ROOTS: Record<PokemonType, string[]> = {
+  Normal: ["Mim", "Poff", "Tumble", "Fable"], Fire: ["Cind", "Pyra", "Ember", "Flari"],
+  Water: ["Aqua", "Bubbi", "Tide", "Mizu"], Electric: ["Volt", "Zappa", "Sparko", "Fulgur"],
+  Grass: ["Moss", "Fern", "Clover", "Sprig"], Ice: ["Frost", "Glaci", "Snow", "Cryo"],
+  Fighting: ["Brava", "Knuck", "Rumble", "Brawli"], Poison: ["Venom", "Spora", "Toxi", "Noxi"],
+  Ground: ["Terra", "Pebbi", "Dun", "Gravi"], Flying: ["Zeph", "Aeri", "Gale", "Wing"],
+  Psychic: ["Aura", "Mindra", "Soma", "Myst"], Bug: ["Nimbi", "Beet", "Silka", "Mothy"],
+  Rock: ["Crag", "Flint", "Bould", "Pebble"], Ghost: ["Wisp", "Shade", "Phanta", "Gloam"],
+  Dragon: ["Drako", "Wyrm", "Drazi", "Myth"], Dark: ["Umbra", "Dusk", "Nocta", "Vanta"],
+  Steel: ["Ferr", "Alloy", "Mecha", "Brass"],
+};
+const PET_NAME_ENDINGS = ["ling", "kin", "puff", "let", "wing", "mote", "bud", "fang", "shell", "bloom", "whisk", "scale", "crest", "glow", "tail", "sprout", "paw", "flit"];
+
+function makePetName(id: string, dex: number, type: PokemonType) {
+  let seed = dex * 31;
+  for (let i = 0; i < id.length; i++) seed = (seed * 33 + id.charCodeAt(i)) >>> 0;
+  const roots = PET_NAME_ROOTS[type];
+  return roots[seed % roots.length] + PET_NAME_ENDINGS[Math.floor(seed / roots.length) % PET_NAME_ENDINGS.length];
+}
+
 type Raw = Omit<Species, "dexEntry"> & { types: string[] };
 
 export const SPECIES_LIST: Species[] = (generated as Raw[]).map((raw) => {
   const types = raw.types as PokemonType[];
-  const fallback = `Pokémon hệ ${types.map((t) => TYPE_VI[t]).join("/")}. Nặng ${raw.weightKg.toLocaleString("vi-VN")} kg.`;
-  return { ...raw, types, learnset: raw.learnset as [number, string][], dexEntry: fallback, ...OVERRIDES[raw.id] };
+  const name = makePetName(raw.id, raw.dex, types[0]);
+  const entry = `Linh thú ${name} mang thuộc tính ${types.map((t) => TYPE_VI[t]).join(" · ")}. Mỗi cá thể có dáng vẻ và sức mạnh riêng.`;
+  return {
+    ...raw,
+    types,
+    learnset: raw.learnset as [number, string][],
+    ...OVERRIDES[raw.id],
+    name,
+    dexEntry: entry,
+  };
 });
 
 export const SPECIES: Record<string, Species> = Object.fromEntries(SPECIES_LIST.map((sp) => [sp.id, sp]));
