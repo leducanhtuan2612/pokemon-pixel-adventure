@@ -5,7 +5,7 @@ import { getSpecies } from "../data/species";
 import { sideQuestFor } from "./sideQuests";
 import {
   createPokemon, displayName, evolve, expForLevel, healPokemon, itemEvolution, maxHp, slot, type PokemonInstance,
-} from "./pokemon";
+} from "./linh thú";
 
 export interface SaveData {
   version: number;
@@ -42,7 +42,7 @@ function newGame(): SaveData {
   };
 }
 
-/** Old (v1/v2) saves stored `{speciesId, level, hp, xp}`; rebuild them as full Pokémon. */
+/** Old (v1/v2) saves stored `{speciesId, level, hp, xp}`; rebuild them as full linh thú. */
 function migrate(d: Record<string, unknown>): SaveData {
   const fresh = newGame();
   if (d.version === VERSION) return { ...fresh, ...(d as Partial<SaveData>) } as SaveData;
@@ -173,7 +173,7 @@ export class GameSession {
       this.setFlag("unlock:move-lab");
       this.setFlag(flag);
       this.changed();
-      return { ok: true, message: "Đã nhận đội test Map 1 (16 Pokémon Lv.30), vật phẩm, 50.000₽ và mở Move Lab. Pokémon dư đã gửi vào PC Box." };
+      return { ok: true, message: "Đã nhận đội test Map 1 (16 linh thú Lv.30), vật phẩm, 50.000₽ và mở Move Lab. linh thú dư đã gửi vào kho linh thú." };
     }
     if (code === "MAP1-MOVE-LAB" || code === "MOVE-TEST-101") {
       if (!this.data.party.length) {
@@ -188,7 +188,7 @@ export class GameSession {
       this.setFlag("unlock:move-lab");
       this.setFlag(flag);
       this.changed();
-      return { ok: true, message: "Move Lab đã mở! Pokémon trong đội được nâng tối thiểu Lv.30." };
+      return { ok: true, message: "Move Lab đã mở! linh thú trong đội được nâng tối thiểu Lv.30." };
     }
     return { ok: false, message: "Mã không hợp lệ. Hãy kiểm tra lại chữ và dấu gạch ngang." };
   }
@@ -197,7 +197,7 @@ export class GameSession {
   assignTestMove(partyIndex: number, moveId: string, slotIndex: number): { ok: boolean; message: string } {
     if (!import.meta.env.DEV || !this.hasFlag("unlock:move-lab")) return { ok: false, message: "Hãy đổi mã MAP1-MOVE-LAB trước." };
     const mon = this.data.party[partyIndex], id = normalizeMoveId(moveId), move = MOVES[id];
-    if (!mon || !move || !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 3) return { ok: false, message: "Pokémon, chiêu hoặc ô chiêu không hợp lệ." };
+    if (!mon || !move || !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex > 3) return { ok: false, message: "linh thú, chiêu hoặc ô chiêu không hợp lệ." };
     while (mon.moves.length <= slotIndex) mon.moves.push(slot("tackle"));
     const pp = getMove(id).pp;
     mon.moves[slotIndex] = { id, pp, maxPp: pp };
@@ -236,7 +236,7 @@ export class GameSession {
     this.changed();
   }
 
-  /** Swap a party member with a box Pokémon, or deposit/withdraw. */
+  /** Swap a party member with a box linh thú, or deposit/withdraw. */
   deposit(partyIdx: number): boolean {
     if (this.data.party.length <= 1) return false;
     const [mon] = this.data.party.splice(partyIdx, 1);
