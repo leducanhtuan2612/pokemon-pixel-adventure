@@ -206,7 +206,7 @@ export function createPetSpriteCanvas(speciesId: string, view: SpriteView = "fro
     polygon(ctx, [[4,9],[0,4],[1,9],[4,12]], light, INK, 0.65);
     polygon(ctx, [[12,9],[16,4],[15,9],[12,12]], accent, INK, 0.65);
     for (let k=0;k<3;k++){ctx.strokeStyle=dark;ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(2+k,6+k*.6);ctx.lineTo(4,10);ctx.moveTo(14-k,6+k*.6);ctx.lineTo(12,10);ctx.stroke();}
-  } else if (primary === "Rock" || primary === "Ground" || primary === "Steel") {
+  } else if (primary === "Rock" || primary === "Ground") {
     polygon(ctx, [[4,8],[3,4],[5,5],[6,8]], dark, INK, .6);
     polygon(ctx, [[8,8],[9,3],[11,6],[10,9]], accent, INK, .6);
     polygon(ctx, [[5,10],[7,8],[9,10],[8,12],[6,12]], light, INK, .45);
