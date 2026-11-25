@@ -216,8 +216,8 @@ export class MoveFx {
       }
       const sig = this.signatures[move.id];
       if (sig) await sig.call(this, ctx);
-      else if (!damaging) await this.statusGeneric(ctx);
-      else await this.typeGeneric(ctx);
+      else await this.signatureFallback(ctx);
+
       if (damaging) await this.cinematicImpact(target, t, col, Math.max(0.85, Math.min(1.7, move.power / 72)));
     } finally {
       this.master = false;
@@ -982,6 +982,89 @@ export class MoveFx {
     sh.destroy();
     await this.tween({ targets: hex6, alpha: 0, duration: 280 });
     hex6.destroy();
+  }
+
+  /**
+   * Procedural signature layer for the long-tail move catalogue. Known iconic
+   * moves use hand-authored sequences above; every other move receives a
+   * motion/shape chosen from its name, combat category and effect metadata,
+   * then tinted with its exact element. This prevents the roster's moves from
+   * collapsing into the same generic flash.
+   */
+  private async signatureFallback(c: Ctx) {
+    const id = c.move.id.toLowerCase();
+    const name = c.move.name.toLowerCase();
+    const physical = categoryOf(c.move.type) === "physical";
+    const heavy = c.move.power >= 85 || !!c.move.ohko;
+    const multi = c.move.multiHit ? Math.max(2, Math.min(5, c.move.multiHit[1])) : 1;
+
+    if (!c.move.power) {
+      const self = !c.move.status && !c.move.confuse && !c.move.leechSeed &&
+        (c.move.stats?.every((s) => s.target === "self") ?? true);
+      if (c.move.heal || c.move.rest) {
+        await this.magicCircle(c.user, c.col, 900);
+        await this.drain(c.u, c.u, c.user, c.col, 8);
+        const halo = this.glow(c.u.x, c.u.y, c.col, 1.2, .8);
+        await this.tween({ targets: halo, scale: 2.4, alpha: 0, duration: 620 }); halo.destroy();
+      } else if (c.move.protect || c.move.screen || /barrier|shield|guard|protect|reflect|light.screen/.test(id)) {
+        await this.shield(self ? c.user : c.target, c.col);
+        await this.magicCircle(self ? c.user : c.target, c.col, 760);
+      } else if (/dance|boost|raise|growth|focus|harden|agility|calm|meditat|charge|stockpile/.test(id)) {
+        await this.magicCircle(c.user, c.col, 900);
+        await this.auraFlames(c.user, c.col);
+        await this.orbit(c.u, 5, c.col, 520, 30, 15);
+      } else if (/seed|root|bind|trap|web|spore|powder|toxic|sleep|paraly| confuse/.test(id)) {
+        await this.vinesAround(c.t, c.col);
+        await this.powder(c.t, [c.col, 0xffffff], 16);
+      } else if (/weather|rain|sun|sand|hail|terrain|field/.test(id)) {
+        await this.magicCircle(c.t, c.col, 1000);
+        await this.tornado(c.t, c.col);
+      } else {
+        await this.statusGeneric(c);
+        const ring = this.scene.add.image(c.t.x, c.t.y, "vfx-ring").setTint(c.col).setBlendMode(ADD).setDepth(DEPTH).setScale(.25);
+        await this.tween({ targets: ring, scale: 1.8, alpha: 0, angle: 180, duration: 540 }); ring.destroy();
+      }
+      return;
+    }
+
+    if (/beam|laser|cannon|pulse|blast|breath|ray|eruption|hydro|overheat|meteor/.test(id)) {
+      await this.cinematicBeam(c, c.col, heavy ? 620 : 380, heavy ? 520 : 340, heavy ? 1.75 : 1.15);
+      return;
+    }
+    if (/slash|blade|claw|cut|scissor|fang|wing|leaf|cross|chop|sweep|tail|strike/.test(id)) {
+      await this.speedLines(c.u, c.t, c.col);
+      await this.lunge(c.user, c.dir, heavy ? 54 : 34);
+      const slashes = heavy ? 4 : 2;
+      for (let i = 0; i < slashes; i++) {
+        await this.claws({ x: c.t.x + rnd(-12, 12), y: c.t.y + rnd(-12, 12) }, c.col, 1, "vfx-slash", (i % 2 ? 135 : 45) + (c.dir < 0 ? 180 : 0));
+        if (i < slashes - 1) await this.wait(65);
+      }
+      await this.burst(c.t, c.col, heavy ? 1.55 : 1, 12 + slashes * 3);
+      return;
+    }
+    if (/punch|kick|hammer|smash|tackle|body|impact|ram|charge|head/.test(id) || physical) {
+      void this.afterimages(c.user, c.dir);
+      await this.lunge(c.user, c.dir, heavy ? 58 : 38);
+      for (let i = 0; i < multi; i++) {
+        this.shake(heavy ? 210 : 125, heavy ? .012 : .006);
+        await this.burst({ x: c.t.x + rnd(-18, 18), y: c.t.y + rnd(-14, 14) }, c.col, heavy ? 1.2 : .72, heavy ? 12 : 7);
+        if (i < multi - 1) await this.wait(90);
+      }
+      return;
+    }
+
+    // Distinct elemental projectile choreography for unlisted special attacks.
+    const count = heavy ? 3 : 1;
+    const shots = Array.from({ length: count }, async (_, i) => {
+      await this.wait(i * (heavy ? 115 : 55));
+      const orb = this.orb(c.u.x, c.u.y, c.col, heavy ? 1 : .68);
+      const end = { x: c.t.x + (i - (count - 1) / 2) * (heavy ? 24 : 12), y: c.t.y + rnd(-12, 12) };
+      await this.travel(orb, c.u, end, heavy ? 480 : 340, (i - 1) * 22, c.col);
+      orb.forEach((o) => o.destroy());
+      await this.burst(end, c.col, heavy ? 1.05 : .68, heavy ? 12 : 7);
+    });
+    await Promise.all(shots);
+    if (heavy) await this.impactSeal(c.t, c.col, 1.25);
   }
 
   private async statusGeneric(c: Ctx) {
