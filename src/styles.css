@@ -205,3 +205,36 @@
 .ppa-expedition-foe small{font:10px "DM Mono",monospace;color:#658095}.ppa-expedition-foe h3{margin:5px 0;font-size:18px}.ppa-expedition-foe p{font-size:11px;margin:0;color:#647b8b}
 .ppa-expedition-result{padding:10px;border-radius:6px;background:#e2f0d9;color:#335e3b;font-weight:700;font-size:12px}
 @media(max-width:520px){.ppa-gacha-rates{grid-template-columns:repeat(2,1fr)}.ppa-gacha-results{grid-template-columns:repeat(3,1fr)}.ppa-stage-list{grid-template-columns:repeat(6,1fr)}}
+
+
+/* Petbound: Wildlands — collectible companions and summoning shrine */
+.ppa-gacha-head{position:relative;overflow:hidden;border:1px solid #819b77;background:linear-gradient(120deg,#152f2d,#3c5143 54%,#263e56);box-shadow:inset 0 0 0 3px #ffffff0c,0 8px 22px #162a2530}
+.ppa-gacha-head:after{content:"✧";position:absolute;right:22px;top:-21px;font-size:88px;color:#f7e7a45c;text-shadow:0 0 22px #e7cb765c;pointer-events:none}
+.ppa-gacha-head b{color:#f0e6b6;text-shadow:0 2px 0 #253b31;letter-spacing:.08em}
+.ppa-gacha-head p{position:relative;z-index:1;color:#d4e4ce}
+.ppa-gacha-rates span{border-color:#c4d2c4;background:linear-gradient(145deg,#f5f6e9,#e4eee2);box-shadow:inset 0 1px #fff}
+.ppa-gacha-rates span b{color:#3c654a}
+.ppa-gacha-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.px-gacha .ppa-gacha-actions button{display:flex;justify-content:space-between;align-items:center;margin:0;border:2px solid #68865a;background:linear-gradient(145deg,#e7f1d2,#cadfae);color:#29462e;box-shadow:0 3px 0 #8fa978}
+.px-gacha .ppa-gacha-actions button:hover{transform:translateY(-2px);box-shadow:0 5px 0 #8fa978}
+.ppa-gacha-results{gap:9px}
+.ppa-gacha-results article{position:relative;min-height:124px;justify-content:center;gap:4px;overflow:hidden;border:2px solid #b5c4bb;background:radial-gradient(circle at 50% 24%,#fff 0,#eef4e9 48%,#dbe7dc 100%);box-shadow:inset 0 0 0 2px #ffffffa8,0 4px 10px #172f2620;transition:transform .16s,box-shadow .16s}
+.ppa-gacha-results article:before{content:"";position:absolute;inset:5px;border:1px dashed #9cad9d;border-radius:5px;pointer-events:none}
+.ppa-gacha-results article:hover{transform:translateY(-4px);box-shadow:0 8px 18px #172f2633}
+.ppa-gacha-results article img{position:relative;z-index:1;width:72px;height:72px;image-rendering:pixelated;filter:drop-shadow(0 5px 3px #172b3233)}
+.ppa-gacha-results article b,.ppa-gacha-results article small{position:relative;z-index:1}
+.ppa-gacha-results article b{font-size:11px;color:#243d32}
+.ppa-gacha-results article small{font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.ppa-gacha-results .rarity-uncommon{border-color:#80a876;background:radial-gradient(circle at 50% 24%,#fff 0,#edf7e2 46%,#d2e9c2 100%)}
+.ppa-gacha-results .rarity-rare{border-color:#78a8c6;background:radial-gradient(circle at 50% 24%,#fff 0,#e8f3fc 46%,#c5deef 100%)}
+.ppa-gacha-results .rarity-legendary{border-color:#d1a94e;background:radial-gradient(circle at 50% 24%,#fffef0 0,#fff0bd 45%,#edd083 100%);box-shadow:inset 0 0 0 2px #fff9d9,0 0 16px #e9c66b70}
+.ppa-gacha-results .rarity-legendary:before{border-color:#c49a3c}
+.ppa-gacha-results .rarity-legendary:after{content:"✦ ✧ ✦";position:absolute;top:10px;color:#b68b31;font-size:12px;letter-spacing:.55em;pointer-events:none}
+.ppa-gacha-history{padding:9px 11px;border:1px solid #c9d7cf;border-radius:7px;background:#edf3eb;color:#435b4d}
+.ppa-gacha-history b{font:700 9px "DM Mono",monospace;letter-spacing:.12em}
+.ppa-gacha-history p{margin:6px 0 0;font-size:10px;line-height:1.6;color:#687e70}
+.px-gacha .ppa-gacha-close{display:block;width:100%;margin:10px 0 0;background:#31493c;color:#eff5df;border-color:#6b8a68}
+.px-card{background:linear-gradient(145deg,#fffef2,#e4eee4);box-shadow:0 4px 10px #1b302522,inset 0 1px #fff}
+.px-card img,.px-card .px-sprite{filter:drop-shadow(0 4px 3px #263b3b38)}
+.px-card-info{color:#2d4338}
+@media(max-width:560px){.ppa-gacha-actions{grid-template-columns:1fr}.ppa-gacha-results article{min-height:110px}.ppa-gacha-results article img{width:64px;height:64px}}
