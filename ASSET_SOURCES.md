@@ -5,7 +5,7 @@ The game's visual direction is a coherent, readable isometric pixel-art village/
 ## Candidate packs reviewed on itch.io
 
 - [Isometric Tiles - Town Pack — Screaming Brain Studios](https://screamingbrainstudios.itch.io/iso-town-pack): CC0; modular town/building tiles that fit an isometric village.
-- [Town Environments: 196 Pixel Art Tiles — PtDesigns](https://itch.io/game-assets/tag-2d): CC0 pack listed on itch.io; use the creator's specific product page and included README/license before importing.
+- [Town Environments: 196 Pixel Art Tiles — PtDesigns](https://ptdesigns.itch.io/town-environments-pixel-art-tiles): CC0 pack listed on itch.io; use the creator's specific product page and included README/license before importing.
 - [Free Isometric Tileset - 32x32 — Shafe](https://shafe.itch.io/free-isometric-tileset-3): CC BY 4.0; requires attribution in the shipped credits if used.
 - [itch.io CC0 + Isometric + Pixel Art catalogue](https://itch.io/game-assets/free/tag-cc0/tag-isometric/tag-pixel-art): source catalogue for additional compatible packs.
 
