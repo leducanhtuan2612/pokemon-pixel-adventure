@@ -9,8 +9,8 @@ import type { MapDefinition } from "../../world/types";
  */
 export const GREENLEAF: MapDefinition = {
   id: "greenleaf",
-  name: "Làng Lá Xanh",
-  theme: "countryside",
+  name: "Thung Lũng Linh Thú",
+  theme: "fantasy-ranch",
   layout: [
     "TTTTTTTTTTTTTTTTTTTTTT~~TTTTTTTTTTTTTTTTTTTTTT",
     "TTTTTTTTTTTTTTTTTTTTTT~~TTTTTTTTTTTTTTTTTTTTTT",
@@ -56,27 +56,27 @@ export const GREENLEAF: MapDefinition = {
   spawn: { x: 6, y: 8 },
   healSpot: { x: 6, y: 8 },
   intro: [
-    "Chào mừng đến Làng Lá Xanh — ngôi làng yên bình giữa ruộng rau và cối xay gió.",
-    "Giáo sư Birch đang đợi bạn trước phòng thí nghiệm (LAB) để nhận Pokémon đầu tiên!",
+    "Chào mừng đến Thung Lũng Linh Thú — miền đất của những người bạn kỳ diệu.",
+    "Nhà nghiên cứu Lâm đang đợi bạn ở Wild Barn. Hãy tìm người bạn đồng hành đầu tiên!",
   ],
   buildings: [
     { id: "home", label: "HOME", x: 4, y: 4, w: 5, h: 4, roof: 0xc8584c, wall: 0xf4e6c8, chimney: true, door: { x: 6, y: 7 },
       doorText: ["Nhà của bạn. Mùi bánh mẹ nướng thơm phức."] },
-    { id: "neighbor", label: "HOUSE", x: 12, y: 4, w: 5, h: 4, roof: 0x5888c8, wall: 0xf0e8d0, chimney: true, door: { x: 14, y: 7 },
-      doorText: ["Nhà hàng xóm. Cửa đã khóa, có tiếng Pokémon ngáy bên trong."] },
-    { id: "lab", label: "LAB", x: 4, y: 11, w: 8, h: 4, roof: 0x3c9a8c, wall: 0xf4f4ec, plaque: "BIRCH LAB", door: { x: 8, y: 14 },
-      doorText: ["Phòng thí nghiệm Pokémon của Giáo sư Birch."] },
+    { id: "neighbor", label: "GREENHOUSE", x: 12, y: 4, w: 5, h: 4, roof: 0x5888c8, wall: 0xb8dfc4, style: "greenhouse", plaque: "BOTANIC HOUSE", door: { x: 14, y: 7 },
+      doorText: ["Nhà kính của thung lũng. Những mầm cây phát sáng đang được chăm sóc bên trong."] },
+    { id: "lab", label: "WILD BARN", x: 4, y: 11, w: 8, h: 4, roof: 0xb85040, wall: 0xd98b56, plaque: "WILD BARN", style: "barn", door: { x: 8, y: 14 },
+      doorText: ["Wild Barn — nơi linh thú được chăm sóc, huấn luyện và gắn kết với người nuôi."] },
     { id: "windmill", label: "MILL", x: 15, y: 11, w: 3, h: 4, roof: 0xb85040, wall: 0xf0e4cc, style: "windmill", door: { x: 16, y: 14 },
       doorText: ["Cối xay gió của làng. Cánh quạt quay đều theo gió."] },
   ],
   npcs: [
     { id: "route-scout", name: "Trinh sát Minh", x: 38, y: 17, facing: "left", look: "ranger", role: "villager",
-      dialog: ["Mình đang khảo sát Pokémon dọc Route 101. Hãy ghi nhận ít nhất 12 loài trong Pokédex rồi quay lại nhé!", "Phía nam có lối mòn dẫn tới Moonlit Grove. Đi theo con đường đá phủ rêu để tìm Mira."] },
+      dialog: ["Mình đang khảo sát linh thú dọc Route 101. Hãy ghi nhận ít nhất 12 loài trong Sổ Linh Thú rồi quay lại nhé!", "Phía nam có lối mòn dẫn tới Moonlit Grove. Đi theo con đường đá phủ rêu để tìm Mira."] },
     { id: "mira", name: "Mira · Nhà nghiên cứu", x: 14, y: 35, facing: "down", look: "girl", role: "villager", wander: 1,
       dialog: ["Bạn đã tìm được Moonlit Grove! Những tinh thể này phát sáng khi có Pokémon ở gần.", "Hãy tìm 3 Mảnh Trăng quanh khu rừng. Chúng nằm ở những ô đất phủ rêu, hãy nhấn Z/Enter để kiểm tra.", "Khi hoàn thành nhiệm vụ, bạn có thể nhận thưởng ngay trên bảng nhiệm vụ bên phải."] },
     { id: "mom", name: "Mẹ", x: 7, y: 8, facing: "down", look: "mom", role: "healer",
       dialog: ["Con về rồi à! Để mẹ chăm sóc Pokémon cho con nhé…", "♪ Xong rồi! Pokémon của con khỏe re rồi đó."] },
-    { id: "birch", name: "Giáo sư Birch", x: 9, y: 16, facing: "down", look: "professor", role: "guide", givesStarter: true,
+    { id: "birch", name: "Nhà nghiên cứu Lâm", x: 9, y: 16, facing: "down", look: "professor", role: "guide", givesStarter: true,
       dialog: [
         "Pokémon hoang dã sống trong cỏ cao ở Route 101, bên kia cây cầu.",
         "Làm yếu Pokémon hoặc cho nó ngủ rồi chọn KẾT NỐI. Giữ đúng nhịp đồng điệu, pha lê sẽ sáng mạnh hơn!",
