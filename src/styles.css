@@ -102,3 +102,26 @@
 @media(max-width:800px){.px-row{font-size:11px;padding:4px 6px}.px-starter-card p{display:none}}
 .px-summary-left,.px-summary-right{height:calc(100% - 44px)}
 .px-summary .px-party-hint{flex:none}
+
+
+/* Map 1 gift kiosk + move QA laboratory */
+.px-redeem-screen,.px-movelab-screen{align-items:center;justify-content:center;background:#101b25eF;background-image:radial-gradient(ellipse at 50% 0,#49677c66,transparent 65%)}
+.px-redeem,.px-movelab{width:min(620px,96%);max-height:94%;overflow:hidden}
+.px-redeem .px-body,.px-movelab .px-body{padding:16px;display:flex;flex-direction:column;gap:10px}
+.px-redeem-art{text-align:center;padding:14px 8px;background:linear-gradient(135deg,#243d35,#182a34);border:1px solid #6a875c;border-radius:8px;color:#d6e9a4;font-size:22px;letter-spacing:.12em}
+.px-redeem-art small{display:block;font:9px "DM Mono",monospace;color:#a9c5b2;letter-spacing:.2em;margin-top:5px}
+.px-redeem-label,.px-lab-label{font:10px "DM Mono",monospace;letter-spacing:.12em;color:#536778;margin-top:4px}
+.px-redeem-input,.px-lab-input,.px-lab-select{width:100%;padding:11px 12px;border:2px solid #90a9b8;border-radius:6px;background:#fff;color:#202b36;font:13px "DM Mono",monospace;outline:none}
+.px-redeem-input:focus,.px-lab-input:focus,.px-lab-select:focus{border-color:#5799d3;box-shadow:0 0 0 3px #5799d333}
+.px-redeem-submit{display:flex;justify-content:space-between;align-items:center;width:100%;padding:12px 14px;background:#315f43!important;color:#f1f8dc!important;border:2px solid #8bad69!important;border-radius:6px;font-weight:700!important;letter-spacing:.06em;cursor:pointer}
+.px-redeem-submit:hover{background:#3d7953!important}.px-redeem-submit:disabled{opacity:.45;cursor:not-allowed}
+.px-code-list{padding:10px 12px;border:1px solid #c5d2d9;border-radius:6px;background:#e9f0f4;color:#263a49;font:11px "DM Mono",monospace}
+.px-code-list>b{color:#3c6e4d;font-size:10px;letter-spacing:.08em}.px-code-list p{line-height:1.55;margin:8px 0}.px-code-list code{font-weight:700;color:#7a3f95}.px-code-list small{display:block;color:#657987;line-height:1.5;margin-top:8px}
+.px-redeem-back{margin-top:4px;background:#e6edf2!important;border:1px solid #9eb0bd!important;border-radius:5px;color:#344a5a!important}
+.px-lab-head{display:flex;justify-content:space-between;gap:8px;color:#47734e;font:11px "DM Mono",monospace;font-weight:700}.px-lab-head b{color:#718594;font-size:9px}
+.px-lab-mon{display:flex;align-items:center;gap:12px;padding:8px;background:#e8f0f5;border-radius:7px;color:#243849}.px-lab-mon b,.px-lab-mon small{display:block}.px-lab-mon small{font-size:10px;color:#6b7f8e;margin-top:4px}
+.px-lab-list{height:clamp(130px,27vh,240px);overflow:auto;border:1px solid #aabcc9;border-radius:6px;background:#fff}
+.px-lab-list button{display:grid;grid-template-columns:60px 1fr;align-items:center;gap:4px 8px;width:100%;padding:7px 9px;border-bottom:1px solid #e4eaf0;color:#263949}
+.px-lab-list button.selected,.px-lab-list button:hover{background:#dbeaf7}.px-lab-list button b{font-size:12px}.px-lab-list button small{grid-column:2;color:#718391;font-size:9px}
+.px-lab-type{display:inline-block;color:#fff;text-align:center;padding:3px 5px;border-radius:4px;font-size:9px}.px-lab-selected{display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:#263b4c;color:#e7f0f6;border-radius:6px;font-size:11px}.px-lab-selected span{font-size:10px;line-height:1.5;color:#bdcdd8}
+@media(max-width:560px){.px-redeem,.px-movelab{width:100%;max-height:100%;border-width:3px}.px-redeem .px-body,.px-movelab .px-body{padding:10px}.px-lab-list{height:24vh}}
