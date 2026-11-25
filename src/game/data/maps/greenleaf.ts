@@ -48,69 +48,11 @@ export const GREENLEAF: MapDefinition = {
     "TT......=====.........~~TTTTTTTTTTTTTTTTTTTTTT",
     "TT......=====.....***.~~TTTTTTTTTTTTTTTTTTTTTT",
     "TTTT...=====.....::::.~~TTTTTTTTTTTTTTTTTTTTTT",
-    "TTTT...=====MMMMQMMMMM~~TTTTTTTTTTTTTTTTTTTTTT",
-    "TTTT...==========MMQMM~~TTTTTTTTTTTTTTTTTTTTTT",
-    "TTTT...==========*****~~TTTTTTTTTTTTTTTTTTTTTT",
-    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-    "Chào mừng đến Làng Lá Xanh — ngôi làng yên bình giữa ruộng rau và cối xay gió.",
-    "Giáo sư Birch đang đợi bạn trước phòng thí nghiệm (LAB) để nhận Pokémon đầu tiên!",
-    "Pokémon hoang dã sống trong cỏ cao ở Route 101, bên kia cây cầu.",
-    "Làm yếu Pokémon hoặc cho nó ngủ trước khi ném Poké Ball sẽ dễ bắt hơn!",
-ort type { MapDefinition } from "../../world/types";
-
-/**
- * Map 1 — Greenleaf Village (countryside) + Route 101.
- * Legend (world/tiles.ts):
- *   T tree  Y apple tree  h hedge  . grass  * flowers  : tall grass  = path  b bridge
- *   ~ water  s sand  f crops  v cabbages  F fence  W well  n bench  m mailbox  l lamp
- *   R rock  S sign  B building  D door  E exit
- */
-export const GREENLEAF: MapDefinition = {
-  id: "greenleaf",
-  name: "Làng Lá Xanh",
-  theme: "countryside",
-  layout: [
-    "TTTTTTTTTTTTTTTTTTTTTT~~TTTTTTTTTTTTTTTTTTTTTT",
-    "TTTTTTTTTTTTTTTTTTTTTT~~TTTTTTTTTTTTTTTTTTTTTT",
-    "TTTT......***......TT.~~TTTTTTTTTTTTTTTTTTTTTT",
-    "TTT...................~~TT................TTTT",
-    "TT..BBBBBh..BBBBB...Y.~~...................TTT",
-    "TT..BBBBBh..BBBBB.**..~~............:::::::.TT",
-    "TT..BBBBBh..BBBBB.**..~~..T......T..:::::::.TT",
-    "TT..BBDBB...BBDBB.....~~..T::::::...:::::::.TT",
-    "TT.m..=..***..=..***..~~...::::::...:::::::.TT",
-    "TT..**=.......=...hhY.~~...::::::...:::::::.TT",
-    "TT....=========.......~~...::::::.T.........TT",
-    "TT..BBBBBBBB..=BBB....~~...::::::...........TT",
-    "TT..BBBBBBBB..=BBB....~~................TT..TT",
-    "TT..BBBBBBBB..=BBB..Y.~~.T.........TT.**....TT",
-    "TT..BBBBDBBB..=BDB.Y..~~..T...R.............TT",
-    "TT......=.....=.=.....~~.***...........R....TT",
-    "TT......=.....=.=..S..~~..S................STT",
-    "TT====================bb=====================E",
-    "TT====================bb=====================E",
-    "TT.........l..........~~.................R..TT",
-    "TT*......n.W.n........~~......**.R..........TT",
-    "TT.FFFFFFF.........hh.~~.TT..........::::::.TT",
-    "TT.Ffffff...vvvvvv....~~.T..:::::::..::::::.TT",
-    "TT.Ffffff...vvvvvv....~~....:::::::..::::::.TT",
-    "TT.Ffffff...vvvvvv..ss~~ss..:::::::..::::::.TT",
-    "TT.Ffffff...........s~~~~s..:::::::..::::::.TT",
-    "TT.FFFFFFF..******..s~~~~s..:::::::..::::::.TT",
-    "TT..................s~~~~s.................TTT",
-    "TT..Y..Y..Y..Y..Y...ss~~ss..........TT....T.TT",
-    "TT.................T..~~.......TT...........TT",
-    "TT...Y...Y...Y...Y..T.~~..TT................TT",
-    "TT....................~~....................TT",
-    "TT......=====.........~~TTTTTTTTTTTTTTTTTTTTTT",
-    "TT......=====.........~~TTTTTTTTTTTTTTTTTTTTTT",
-    "TT......=====.....***.~~TTTTTTTTTTTTTTTTTTTTTT",
-    "TTTT...=====.....::::.~~TTTTTTTTTTTTTTTTTTTTTT",
     "TTTT...=====MMMMMMMMMM~~TTTTTTTTTTTTTTTTTTTTTT",
     "TTTT...==========MMMMM~~TTTTTTTTTTTTTTTTTTTTTT",
     "TTTT...==========*****~~TTTTTTTTTTTTTTTTTTTTTT",
     "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-
+  ],
   spawn: { x: 6, y: 8 },
   healSpot: { x: 6, y: 8 },
   intro: [
