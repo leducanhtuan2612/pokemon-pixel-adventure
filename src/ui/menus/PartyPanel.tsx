@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { session } from "../../game/core/GameSession";
-import { calcStats, displayName, expForLevel, type PokemonInstance } from "../../game/core/pokemon";
+import { calcStats, displayName, expForLevel, type PokemonInstance } from "../../game/core/linh thú";
 import { getMove } from "../../game/data/moves";
 import { getSpecies } from "../../game/data/species";
 import { categoryOf } from "../../game/data/types";
@@ -35,13 +35,13 @@ export function PartyPanel() {
       </button>)}
     </div>
     <div className="px-party-hint">
-      {mode.kind === "swap" ? `Chọn vị trí để đổi với ${displayName(party[mode.from])}.` : "Chọn một Pokémon. Pokémon đầu tiên sẽ ra trận trước. (ESC: quay lại)"}
+      {mode.kind === "swap" ? `Chọn vị trí để đổi với ${displayName(party[mode.from])}.` : "Chọn một linh thú. linh thú đầu tiên sẽ ra trận trước. (ESC: quay lại)"}
     </div>
     {mode.kind === "actions" && <PartyActions mon={party[mode.i]} onPick={(a) => {
       const i = mode.i;
       if (a === "summary") setMode({ kind: "summary", i });
       else if (a === "swap") setMode({ kind: "swap", from: i });
-      else if (a === "deposit") { notify(session.deposit(i) ? "Đã gửi vào PC Box." : "Phải giữ lại ít nhất 1 Pokémon!"); setMode({ kind: "list" }); }
+      else if (a === "deposit") { notify(session.deposit(i) ? "Đã gửi vào Kho linh thú." : "Phải giữ lại ít nhất 1 linh thú!"); setMode({ kind: "list" }); }
       else setMode({ kind: "list" });
     }} />}
     {mode.kind === "summary" && <Summary start={mode.i} onBack={() => setMode({ kind: "list" })} />}
@@ -89,7 +89,7 @@ export function Summary({ start, onBack, list }: { start: number; onBack: () => 
         </div>;
       })}
     </div>
-    <div className="px-party-hint">↑↓ đổi Pokémon · ESC quay lại</div>
+    <div className="px-party-hint">↑↓ đổi linh thú · ESC quay lại</div>
   </div>;
 }
 
@@ -100,11 +100,11 @@ export function BoxPanel() {
   const [summary, setSummary] = useState<number | null>(null);
   const [index, setIndex] = useMenuNav(box.length, (i) => {
     if (session.withdraw(i)) notify(`Đã rút ${displayName(box[i] ?? session.party[session.party.length - 1])} vào đội.`);
-    else notify("Đội đã đủ 6 Pokémon!");
+    else notify("Đội đã đủ 6 linh thú!");
   }, () => open("menu"), 4, summary === null);
   return <div className="px-fullscreen px-box">
-    <div className="px-box-head">PC BOX — {box.length} Pokémon <span>Enter: rút về đội · ESC: quay lại</span></div>
-    {!box.length && <div className="px-empty">PC Box trống. Pokémon bắt được khi đội đầy sẽ được gửi vào đây.</div>}
+    <div className="px-box-head">KHO LINH THÚ — {box.length} linh thú <span>Enter: rút về đội · ESC: quay lại</span></div>
+    {!box.length && <div className="px-empty">PC Box trống. linh thú bắt được khi đội đầy sẽ được gửi vào đây.</div>}
     <div className="px-box-grid">
       {box.map((mon, i) => <button key={mon.uid} className={`px-box-cell ${i === index ? "on" : ""}`} onMouseEnter={() => setIndex(i)}
         onClick={() => setSummary(i)}>
