@@ -74,6 +74,8 @@ export const GREENLEAF: MapDefinition = {
       gift: { item: "great-ball", qty: 5, flag: "gift:birch-dex5", requiresCaught: 5,
         text: ["Ồ! Cậu đã ghi được 5 loài vào Pokédex rồi sao? Giỏi lắm!", "Đây là 5 Great Ball, phần thưởng của ta!"],
         notYet: ["Hãy thử bắt thật nhiều loài Pokémon. Khi ghi được 5 loài vào Pokédex, quay lại gặp ta nhé!"] } },
+    { id: "gift-codes", name: "Máy Đổi Quà", x: 22, y: 16, facing: "down", look: "oldman", role: "villager",
+      dialog: ["Máy thử nghiệm của Giáo sư Birch. Có thể nhập mã quà QA tại đây.", "Mã GREENLEAF-TEST nhận đội Pokémon test Map 1.", "Mã MAP1-MOVE-LAB mở phòng thử và thay chiêu thức."] },
     { id: "vendor", name: "Cô Hạnh", x: 18, y: 16, facing: "down", look: "vendor", role: "mart",
       dialog: ["Chào cháu! Quầy hàng của cô có đủ Poké Ball và thuốc men đó."] },
     { id: "farmer", name: "Bác Tư", x: 10, y: 23, facing: "left", look: "farmer", role: "villager", wander: 1,
