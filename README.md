@@ -74,3 +74,13 @@ Front sprites are in `src/assets/sprites/pokemon/front/` named by National Dex n
 
 ## Notes
 The current map is a fully playable first-area prototype built from procedural pixel shapes (no external art required). It is designed to be extended with authored tilemaps, animations, sound, quest tracking, additional regions and richer battle moves.
+
+
+## Update — Summon & Gauntlet progression
+
+The Start Menu now includes two new progression systems:
+
+- **Trạm Triệu Hồi (Gacha):** 100 crystals per summon, 1/10 legendary rate with a ten-pull pity counter, duplicate conversion into crystals, and automatic party/PC placement. New summon state is stored separately so existing saves remain compatible.
+- **Tháp Thử Thách:** 30 unlockable stages, a boss every five stages, persistent cleared/claimed tracking, party HP attrition, money and summon-crystal rewards, and a Pokémon reward claim per cleared stage. Progress is stored separately from the original adventure save.
+
+Both menus use the existing React overlay and session inventory/party, and are available from the in-game ESC menu. This is a progression prototype layered onto the current battle engine; the gauntlet currently resolves encounters as a party-power challenge rather than launching the full cinematic BattleScene.
