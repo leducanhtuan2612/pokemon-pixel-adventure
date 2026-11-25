@@ -246,6 +246,72 @@ export function createPetSpriteCanvas(speciesId: string, view: SpriteView = "fro
     polygon(ctx, [[6, 8], [8, 9], [10, 8]], accent, "", 0);
   }
 
+  // Species silhouette pass: deterministic morphology rather than recolouring
+  // one template. Each dex entry receives its own crest/appendage combination.
+  const morph = (seed >>> 5) % 8;
+  const bodyWide = species.base.def + species.base.hp > species.base.spe + species.base.spa;
+  if (morph === 0) {
+    // Broad aquatic fins and a layered dorsal sail.
+    polygon(ctx, [[3,8],[0,5],[1,10],[4,12]], accent, INK, .65);
+    polygon(ctx, [[11,8],[15,4],[14,10],[12,12]], light, INK, .65);
+    polygon(ctx, [[6,7],[8,3],[10,7],[9,9]], accent, INK, .6);
+    ctx.strokeStyle=dark;ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(2,7);ctx.lineTo(4,10);ctx.moveTo(13,7);ctx.lineTo(11,10);ctx.stroke();
+  } else if (morph === 1) {
+    // Long-eared agile form with a forked, expressive tail.
+    polygon(ctx, [[5,6],[3,0],[7,4],[8,7]], accent, INK, .6);
+    polygon(ctx, [[10,6],[13,0],[12,5],[11,7]], light, INK, .6);
+    polygon(ctx, [[11,11],[15,8],[14,12],[16,13],[12,13]], accent, INK, .55);
+    ctx.fillStyle=pale;ctx.fillRect(4,2,1,2);ctx.fillRect(12,2,1,2);
+  } else if (morph === 2) {
+    // Armoured quadruped: segmented shell plates and shoulder guards.
+    polygon(ctx, [[3,8],[5,6],[8,6],[11,7],[13,10],[11,13],[5,13]], dark, INK, .7);
+    polygon(ctx, [[5,7],[8,6],[10,8],[8,10],[5,9]], light, INK, .45);
+    polygon(ctx, [[10,8],[12,7],[14,9],[12,11]], accent, INK, .45);
+    polygon(ctx, [[4,9],[2,7],[3,11],[5,12]], accent, INK, .55);
+  } else if (morph === 3) {
+    // Four-point wing silhouette with feather / membrane struts.
+    polygon(ctx, [[5,9],[0,3],[2,10],[5,13]], dark, INK, .7);
+    polygon(ctx, [[5,9],[2,5],[4,11]], light, INK, .4);
+    polygon(ctx, [[11,9],[16,3],[14,10],[11,13]], accent, INK, .7);
+    polygon(ctx, [[11,9],[14,5],[12,11]], pale, INK, .4);
+    ctx.strokeStyle=dark;ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(3,5);ctx.lineTo(5,11);ctx.moveTo(13,5);ctx.lineTo(11,11);ctx.stroke();
+  } else if (morph === 4) {
+    // Heavy horned guardian with layered brow and dorsal spikes.
+    polygon(ctx, [[4,7],[2,2],[6,5],[7,8]], pale, INK, .65);
+    polygon(ctx, [[10,7],[14,2],[12,7]], accent, INK, .65);
+    for(let k=0;k<3;k++) polygon(ctx, [[5+k*2,8],[6+k*2,5],[7+k*2,8]], light, INK, .45);
+    if(bodyWide) polygon(ctx, [[3,10],[1,8],[2,12],[5,13]], accent, INK, .5);
+  } else if (morph === 5) {
+    // Botanical / insect forms with leaf mantle and fine antennae.
+    polygon(ctx, [[4,9],[1,5],[5,6],[7,9]], accent, INK, .55);
+    polygon(ctx, [[9,9],[14,5],[12,9],[10,11]], light, INK, .55);
+    ctx.strokeStyle=dark;ctx.lineWidth=.5;ctx.beginPath();ctx.moveTo(6,6);ctx.lineTo(5,2);ctx.moveTo(10,6);ctx.lineTo(12,2);ctx.stroke();
+    ellipse(ctx,5,11,1.5,1.1,pale,INK,.35);ellipse(ctx,11,11,1.5,1.1,light,INK,.35);
+  } else if (morph === 6) {
+    // Mystic / spectral body: floating wisps and a rune halo.
+    ellipse(ctx,3,8,1.5,2.2,accent,"",0);ellipse(ctx,13,6,1.4,2.4,light,"",0);
+    polygon(ctx, [[5,4],[8,1],[11,4],[10,6],[6,6]], pale, INK, .5);
+    ctx.strokeStyle=accent;ctx.lineWidth=.55;ctx.beginPath();ctx.arc(8,9,6.5,Math.PI*.15,Math.PI*.85);ctx.stroke();
+    ctx.fillStyle="#ffffff";ctx.fillRect(3,6,1,1);ctx.fillRect(13,9,1,1);
+  } else {
+    // Serpentine / draconic form with curled tail, segmented scales and twin horns.
+    ctx.strokeStyle=INK;ctx.lineWidth=2.1;ctx.beginPath();ctx.moveTo(9,11);ctx.bezierCurveTo(15,13,15,7,12,8);ctx.stroke();
+    ctx.strokeStyle=accent;ctx.lineWidth=1.1;ctx.beginPath();ctx.moveTo(9,11);ctx.bezierCurveTo(15,13,15,7,12,8);ctx.stroke();
+    polygon(ctx, [[5,6],[4,2],[7,4],[8,7]], light, INK, .55);
+    polygon(ctx, [[10,6],[12,2],[12,6]], accent, INK, .55);
+    for(let k=0;k<4;k++){ctx.fillStyle=pale;ctx.fillRect(5+k*2,10+(k%2),.7,.7);}
+  }
+
+  // Small material highlights: polished shell facets, wet glints and eye shine.
+  if (primary === "Water" || secondary === "Water") {
+    ctx.fillStyle="#f4ffff";ctx.fillRect(4,8,.8,.8);ctx.fillRect(12,10,.8,.8);
+  } else if (primary === "Steel" || primary === "Rock") {
+    ctx.fillStyle="#f5f5e8";ctx.fillRect(5,8,1,1);ctx.fillRect(10,10,1,1);
+    ctx.strokeStyle=pale;ctx.lineWidth=.45;ctx.beginPath();ctx.moveTo(5,9);ctx.lineTo(8,7);ctx.lineTo(11,9);ctx.stroke();
+  } else if (primary === "Fire" || primary === "Electric") {
+    ctx.fillStyle="#fff5b8";ctx.fillRect(4,9,1,1);ctx.fillRect(11,8,1,1);
+  }
+
   // A tiny collar crystal distinguishes a bonded companion from a wild one.
   polygon(ctx, [[8, 12.5], [9, 13.2], [8, 14], [7, 13.2]], pale, "#52606a", 0.35);
   ctx.restore();
