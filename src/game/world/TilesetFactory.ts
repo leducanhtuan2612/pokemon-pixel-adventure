@@ -42,6 +42,17 @@ function paintFlowers(ctx: Ctx, ox: number, oy: number, frame: number, pink: boo
   paintPattern(ctx, pat(frame ? "flower1" : "flower0"), pink ? PAL.flowerB : PAL.flowerA, ox, oy);
 }
 
+function paintMoss(ctx: Ctx, ox: number, oy: number, seed: number) {
+  ctx.fillStyle = "#344b45"; ctx.fillRect(ox, oy, T, T);
+  for (let i = 0; i < 9; i++) {
+    const x = Math.floor(hash(seed, i) * 14) + 1, y = Math.floor(hash(seed, i + 20) * 14) + 1;
+    px(ctx, ox, oy, x, y, i % 3 ? "#587b61" : "#789b70", 2 + i % 2, 1 + (i % 3));
+    if (i % 3 === 0) px(ctx, ox, oy, x + 1, y + 1, "#b0d88c");
+  }
+  px(ctx, ox, oy, 2, 13, "#283d38", 12, 1);
+  px(ctx, ox, oy, 4, 14, "#4e6f5b", 8, 1);
+}
+
 function paintTallGrass(ctx: Ctx, ox: number, oy: number) {
   ctx.fillStyle = GRASS;
   ctx.fillRect(ox, oy, T, T);
@@ -149,6 +160,7 @@ export function painterFor(desc: string): GroundPainter {
     case "ground": return (ctx, x, y) => paintGround(ctx, x, y, n1 === 1);
     case "flower": return (ctx, x, y) => paintFlowers(ctx, x, y, n1, n2 === 1);
     case "tall": return (ctx, x, y) => paintTallGrass(ctx, x, y);
+    case "moss": return (ctx, x, y) => paintMoss(ctx, x, y, n1);
     case "path": return (ctx, x, y) => paintPath(ctx, x, y, n1, n2);
     case "sand": return (ctx, x, y) => paintSand(ctx, x, y, n1, n2);
     case "water": return (ctx, x, y) => paintWater(ctx, x, y, n1, n2, n3);
@@ -196,7 +208,7 @@ function canvasTexture(scene: Phaser.Scene, key: string, w: number, h: number, d
 export const PROP = {
   tree: "prop-tree", apple: "prop-apple", rock: "prop-rock", sign: "prop-sign", fence: "prop-fence", hedge: "prop-hedge",
   well: "prop-well", bench: "prop-bench", mailbox: "prop-mailbox", lamp: "prop-lamp", itemBall: "prop-item",
-  grassFront: "prop-grass-front", shadow: "prop-shadow", leaf: "fx-leaf", bubble: "fx-bubble", blades: "prop-blades",
+  grassFront: "prop-grass-front", shadow: "prop-shadow", leaf: "fx-leaf", bubble: "fx-bubble", blades: "prop-blades", crystal: "prop-moon-crystal", firefly: "prop-firefly",
 } as const;
 
 export function ensurePropTextures(scene: Phaser.Scene) {
