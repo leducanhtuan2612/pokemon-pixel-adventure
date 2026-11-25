@@ -135,7 +135,7 @@ export class OverworldScene extends Phaser.Scene {
 
   /** Mouse/touch destination selection. Convert screen pointer through camera, then inverse-isometric pick. */
   private onWorldPointer = (pointer: Phaser.Input.Pointer) => {
-    if (!this.canAct() || pointer.button !== 0) return;
+    if (!this.canAct() || pointer.button > 0) return;
     const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const picked = this.world.unproject(worldPoint.x, worldPoint.y);
     if (picked.x < 0 || picked.y < 0 || picked.x >= this.world.width || picked.y >= this.world.height) return;
@@ -196,6 +196,8 @@ export class OverworldScene extends Phaser.Scene {
     const path = this.findQuestPath(goals);
     if (!path) { useGameStore.getState().notify("Không tìm được đường đến mục tiêu. Hãy thử lại."); return; }
     this.autoPath = path; this.autoPathIndex = 0; this.autoNavigating = path.length > 0;
+    this.routeDestination = path.length ? { ...path[path.length - 1] } : { ...this.player.tile };
+    this.drawRoute();
     if (!this.autoNavigating) this.finishQuestNavigation();
     else useGameStore.getState().notify("Đang tự động đi đến: " + this.autoQuestLabel);
   };
