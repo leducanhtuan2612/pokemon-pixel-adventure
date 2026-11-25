@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { ensurePlaceholders, preloadPokemonSprites } from "../battle/sprites";
 import { createPokemon } from "../core/pokemon";
 
-/** Loads Pokémon sprites (whatever exists in src/assets) and fills gaps with placeholders. */
+/** Builds original fantasy companion sprites before starting the world. */
 export class BootScene extends Phaser.Scene {
   constructor() { super("BootScene"); }
 
